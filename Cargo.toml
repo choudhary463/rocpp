@@ -1,0 +1,7 @@
+[workspace]
+resolver = "3"
+members = [
+    "ocpp-core",
+    "ocpp-client",
+    "ocpp-client/examples/v16/simulator/src-tauri"
+]

@@ -1,0 +1,139 @@
+.log-panel {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.log-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  flex-shrink: 0;
+}
+
+.log-header h2 {
+  margin: 0;
+  font-size: 1.2rem;
+  color: #1a1a2e;
+}
+
+.log-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.scroll-to-bottom-btn {
+  background-color: #17a2b8;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.scroll-to-bottom-btn:hover {
+  background-color: #138496;
+}
+
+.clear-logs-btn,
+.toggle-pretty-print-btn {
+  background-color: #6c757d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.clear-logs-btn:hover,
+.toggle-pretty-print-btn:hover {
+  background-color: #5a6268;
+}
+
+.toggle-pretty-print-btn.active {
+  background-color: #0d6efd;
+}
+
+.toggle-pretty-print-btn.active:hover {
+  background-color: #0b5ed7;
+}
+
+.log-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  font-family: monospace;
+  font-size: 0.9rem;
+  background-color: #1e1e1e;
+  color: #d4d4d4;
+}
+.log-entry {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid #333;
+  display: flex;
+}
+
+.log-time,
+.log-kind {
+  margin-right: 0.5rem;
+  flex-shrink: 0;
+  white-space: nowrap;
+  padding-top: 0.1em;
+}
+
+.log-time {
+  color: #569cd6;
+}
+
+.log-kind {
+  font-weight: bold;
+}
+
+.log-message {
+  white-space: pre;
+  overflow-x: auto;
+  flex-grow: 1;
+  min-width: 0;
+}
+
+.log-error .log-kind {
+  color: #f14c4c;
+}
+
+.log-warning .log-kind {
+  color: #dcdcaa;
+}
+
+.log-info .log-kind {
+  color: #3794ff;
+}
+
+.log-debug .log-kind {
+  color: #6a9955;
+}
+
+.log-msg-in .log-kind {
+  color: #9cdcfe;
+}
+
+.log-msg-out .log-kind {
+  color: #ce9178;
+}
+
+.no-logs {
+  text-align: center;
+  color: #6c757d;
+  margin-top: 2rem;
+}

@@ -1,0 +1,238 @@
+.connector-status {
+  background-color: white;
+  border-radius: 8px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s, box-shadow 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.connector-status:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.connector-loading-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(255, 255, 255, 0.9);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+}
+
+.loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3498db;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin-bottom: 1rem;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.connector-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.connector-header h3 {
+  margin: 0;
+  color: #1a1a2e;
+  font-size: 1.2rem;
+}
+
+.status-indicator {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  margin-left: 10px;
+}
+
+.status-details {
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.status-details p {
+  margin: 0.5rem 0;
+}
+
+.connector-controls-section {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.connector-state-controls {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
+}
+
+.state-button {
+  padding: 0.6rem 0;
+  border: 1px solid transparent; 
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: white;
+  cursor: pointer;
+  transition: background-color 0.15s ease-in-out, 
+              transform 0.1s ease-in-out, 
+              border-color 0.15s ease-in-out, 
+              box-shadow 0.15s ease-in-out, 
+              opacity 0.15s ease-in-out;
+  text-align: center;
+  line-height: 1.2;
+}
+
+.state-button:hover:not(:disabled):not(.active) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.state-button:active:not(:disabled):not(.active) {
+  transform: translateY(0);
+  box-shadow: 0 2px 3px rgba(0, 0, 0, 0.1);
+}
+
+.state-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  background-image: none !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+.state-button.active {
+  opacity: 1 !important;
+  cursor: default;
+  transform: scale(0.97) !important;
+  box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.35) !important;
+  border-width: 1px;
+  border-style: solid;
+  color: #a1e0af !important;
+}
+
+.plug-button {
+  background-color: #28a745;
+  border-color: #28a745;
+}
+
+.plug-button:hover:not(:disabled):not(.active) {
+  background-color: #218838;
+  border-color: #1e7e34;
+}
+
+.plug-button.active {
+  background-color: #155724 !important;
+  border-color: #0b2d13 !important;
+  color: #a1e0af !important;
+}
+
+.unplug-button {
+  background-color: #17a2b8;
+  border-color: #17a2b8;
+}
+
+.unplug-button:hover:not(:disabled):not(.active) {
+  background-color: #138496;
+  border-color: #10707f;
+}
+
+.unplug-button.active {
+  background-color: #0c5460 !important;
+  border-color: #072f35 !important;
+  color: #9eeaf9 !important;
+}
+
+.faulty-button {
+  background-color: #dc3545;
+  border-color: #dc3545;
+}
+
+.faulty-button:hover:not(:disabled):not(.active) {
+  background-color: #c82333;
+  border-color: #b02a37;
+}
+
+.faulty-button.active {
+  background-color: #8c1823 !important;
+  border-color: #580e16 !important;
+  color: #f5b7bd !important;
+}
+
+.id-tag-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.id-tag-input {
+  flex: 1;
+  padding: 0.6rem;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  transition: border-color 0.2s;
+}
+
+.id-tag-input:focus {
+  border-color: #4dabf7;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(77, 171, 247, 0.25);
+}
+
+.send-id-button {
+  background-color: #0d6efd;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 0.6rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.send-id-button:hover:not(:disabled) {
+  background-color: #0b5ed7;
+}
+
+.send-id-button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.message {
+  margin-top: 1rem;
+  padding: 0.7rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.message.success {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.message.error {
+  background-color: #f8d7da;
+  color: #721c24;
+  border: 1px solid #f5c6cb;
+}
