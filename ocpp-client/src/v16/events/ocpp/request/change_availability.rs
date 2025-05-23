@@ -1,3 +1,4 @@
+use alloc::{string::String, vec::Vec};
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -7,13 +8,13 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::{secc::SeccState, timeout::TimerId},
-    state_machine::{connector::ConnectorState, core::ChargePointCore},
+    interface::{Database, Secc, SeccState, TimerId},
+    state_machine::{connector::ConnectorState},
+    cp::ChargePointCore
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn change_availability_ocpp(&mut self, unique_id: String, req: ChangeAvailabilityRequest) {
+    pub(crate) fn change_availability_ocpp(&mut self, unique_id: String, req: ChangeAvailabilityRequest) {
         let mut changes = Vec::new();
         let mut pending = false;
         if req.connector_id > self.configs.number_of_connectors.value {

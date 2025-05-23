@@ -1,16 +1,15 @@
 use ocpp_core::v16::messages::meter_values::MeterValuesResponse;
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
+    interface::{Database, Secc, TimerId},
     state_machine::{
-        core::{ChargePointCore, OcppError},
         transaction::{TransactionEvent, TransactionEventState},
     },
+    cp::{ChargePointCore, OcppError},
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn meter_values_response(&mut self, res: Result<MeterValuesResponse, OcppError>) {
+    pub(crate) fn meter_values_response(&mut self, res: Result<MeterValuesResponse, OcppError>) {
         let local_transaction_id = match self.transaction_queue.front() {
             Some(TransactionEvent::Meter(t)) => t.local_transaction_id,
             _ => {

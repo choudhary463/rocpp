@@ -1,4 +1,4 @@
-use ocpp_client::v16::{SeccActions, SeccState};
+use ocpp_client::v16::{HardwareActions, SeccState};
 use serde::Serialize;
 use std::{path::PathBuf, time::Duration};
 
@@ -178,6 +178,7 @@ impl TestChain {
                     }
                     StartResult::Stay => {}
                 }
+
             }
             let (ev, d) = h.bus_rx.next().await.unwrap_or((
                 Event::Connection(ConnectionEvents::Timeout),
@@ -192,6 +193,7 @@ impl TestChain {
                 StepResult::Done => return,
                 StepResult::Fail(msg) => panic!("{:?}", msg),
             }
+            tokio::task::yield_now().await;
         }
     }
 }
@@ -225,8 +227,9 @@ impl TestChain {
     }
     pub fn plug(self, connector_id: usize) -> Self {
         self.operation(move |t| {
+            log::info!("Sent hardware action! {:?}", t.secc_tx);
             t.secc_tx
-                .send(SeccActions::Secc(
+                .send(HardwareActions::State(
                     connector_id - 1,
                     SeccState::Plugged,
                     None,
@@ -238,7 +241,7 @@ impl TestChain {
     pub fn unplug(self, connector_id: usize) -> Self {
         self.operation(move |t| {
             t.secc_tx
-                .send(SeccActions::Secc(
+                .send(HardwareActions::State(
                     connector_id - 1,
                     SeccState::Unplugged,
                     None,
@@ -250,7 +253,7 @@ impl TestChain {
     pub fn faulty(self, connector_id: usize) -> Self {
         self.operation(move |t| {
             t.secc_tx
-                .send(SeccActions::Secc(
+                .send(HardwareActions::State(
                     connector_id - 1,
                     SeccState::Faulty,
                     None,
@@ -262,7 +265,7 @@ impl TestChain {
     pub fn present_id_tag(self, connector_id: usize, id_tag: String) -> Self {
         self.operation(move |t| {
             t.secc_tx
-                .send(SeccActions::IdTag(connector_id - 1, id_tag))
+                .send(HardwareActions::IdTag(connector_id - 1, id_tag))
                 .unwrap();
         })
     }

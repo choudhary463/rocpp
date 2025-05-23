@@ -1,3 +1,4 @@
+use alloc::{format, string::String};
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -8,18 +9,18 @@ use ocpp_core::{
 
 use crate::v16::{
     interface::{Database, Secc},
+    cp::ChargePointCore,
     state_machine::{
-        core::ChargePointCore,
         diagnostics::{DiagnosticsState, DiagnosticsUploadInfo},
     },
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    fn get_diagnostics_file_name(&self) -> Option<String> {
-        let s = uuid::Uuid::new_v4().simple().to_string();
-        Some(format!("file_{}", &s[..6]))
+    fn get_diagnostics_file_name(&mut self) -> Option<String> {
+        let s = self.get_uuid();
+        Some(format!("file_{}.log", &s[..6]))
     }
-    pub fn get_diagnostics_ocpp(&mut self, unique_id: String, req: GetDiagnosticsRequest) {
+    pub(crate) fn get_diagnostics_ocpp(&mut self, unique_id: String, req: GetDiagnosticsRequest) {
         let (file_name, new_upload) = match &self.diagnostics_state {
             DiagnosticsState::Idle => {
                 let res = self.get_diagnostics_file_name();

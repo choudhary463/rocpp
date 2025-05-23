@@ -1,3 +1,4 @@
+use alloc::string::String;
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -7,13 +8,13 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::{secc::SeccState, timeout::TimerId},
-    state_machine::{connector::ConnectorState, core::ChargePointCore},
+    interface::{Database, Secc, SeccState, TimerId},
+    state_machine::{connector::ConnectorState},
+    cp::ChargePointCore
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn reserve_now_ocpp(&mut self, unique_id: String, req: ReserveNowRequest) {
+    pub(crate) fn reserve_now_ocpp(&mut self, unique_id: String, req: ReserveNowRequest) {
         let mut send_status = None;
         let connector_id = req.connector_id;
         let already_reserved = self.get_connector_with_reservation(req.reservation_id);

@@ -1,3 +1,4 @@
+use alloc::{string::String, vec::Vec};
 use ocpp_core::v16::{
     messages::{
         firmware_status_notification::FirmwareStatusNotificationRequest,
@@ -6,9 +7,9 @@ use ocpp_core::v16::{
     types::FirmwareStatus,
 };
 
-use crate::v16::interface::{Database, Secc};
+use crate::v16::{interface::{Database, Secc}, cp::ChargePointCore};
 
-use super::{call::CallAction, core::ChargePointCore};
+use super::call::CallAction;
 
 pub(crate) struct FirmwareDownloadInfo {
     pub retry_left: u64,
@@ -39,7 +40,7 @@ impl FirmwareState {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn on_firmware_online(&mut self) {
+    pub(crate) fn on_firmware_online(&mut self) {
         let status = match self.last_firmware_state {
             FirmwareInstallStatus::InstallationSuccess => FirmwareStatus::Installed,
             FirmwareInstallStatus::InstallationFailed => FirmwareStatus::InstallationFailed,
@@ -49,7 +50,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         self.last_firmware_state = FirmwareInstallStatus::NA;
         self.db.db_change_firmware_state(FirmwareInstallStatus::NA);
     }
-    pub fn send_firmware_status_notification(&mut self, status: FirmwareStatus) {
+    pub(crate) fn send_firmware_status_notification(&mut self, status: FirmwareStatus) {
         let payload = FirmwareStatusNotificationRequest { status };
         self.enqueue_call(CallAction::FirmwareStatusNotification, payload);
     }

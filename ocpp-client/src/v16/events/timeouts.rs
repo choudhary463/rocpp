@@ -4,23 +4,14 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
-    state_machine::{
-        boot::BootState,
-        call::OutgoingCallState,
-        connector::{ConnectorState, StatusNotificationState},
-        core::{ChargePointCore, OcppError},
-        diagnostics::DiagnosticsState,
-        firmware::{FirmwareDownloadInfo, FirmwareState},
-        heartbeat::HeartbeatState,
-        meter::MeterDataKind,
-        transaction::TransactionEventState,
-    },
+    cp::{ChargePointCore, OcppError}, interface::{Database, Secc, TimerId}, state_machine::{
+        boot::BootState, call::OutgoingCallState, connector::{ConnectorState, StatusNotificationState}, firmware::{FirmwareDownloadInfo, FirmwareState}, heartbeat::HeartbeatState, meter::MeterDataKind, transaction::TransactionEventState
+    }
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn handle_timeout(&mut self, id: TimerId) {
+    pub fn handle_timeout_helper(&mut self, id: TimerId) {
+        self.remove_timeout(id.clone());
         match id {
             TimerId::Boot => {
                 match &self.boot_state {
@@ -88,20 +79,8 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                     unreachable!();
                 }
             },
-            TimerId::Diagnostics => {
-                if let DiagnosticsState::Uploading(mut t) =
-                    std::mem::replace(&mut self.diagnostics_state, DiagnosticsState::Idle)
-                {
-                    t.retry_left -= 1;
-                    self.cancel_diagnostics_upload();
-                    self.diagnostics_state = DiagnosticsState::Uploading(t);
-                    self.try_diagnostrics_upload();
-                } else {
-                    unreachable!();
-                }
-            }
             TimerId::Firmware => {
-                match std::mem::replace(&mut self.firmware_state, FirmwareState::Idle) {
+                match core::mem::replace(&mut self.firmware_state, FirmwareState::Idle) {
                     FirmwareState::New(t) => {
                         self.send_firmware_status_notification(FirmwareStatus::Downloading);
                         self.try_firmware_download(FirmwareDownloadInfo {

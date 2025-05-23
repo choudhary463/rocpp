@@ -1,13 +1,15 @@
-use std::{
+use core::{
     future::Future,
     mem,
     pin::Pin,
     task::{Context, Poll},
 };
 
+use alloc::{boxed::Box, string::String};
+
 use crate::v16::interface::WebsocketIo;
 
-pub(crate) enum WebsocketState<W: WebsocketIo> {
+pub(crate) enum WebsocketStage<W: WebsocketIo> {
     Idle(W),
     Connecting(Pin<Box<dyn Future<Output = W> + Send>>),
     Connected(W),
@@ -15,29 +17,29 @@ pub(crate) enum WebsocketState<W: WebsocketIo> {
 }
 
 #[derive(Debug)]
-pub(crate) enum WebsocketResponse {
+pub enum WebsocketResponse {
     Connected,
     Disconnected,
     WsMsg(String),
 }
 
 pub(crate) struct WebsocketService<W: WebsocketIo> {
-    state: WebsocketState<W>,
+    state: WebsocketStage<W>,
 }
 
 impl<W: WebsocketIo> WebsocketService<W> {
     pub fn new(ws: W) -> Self {
         Self {
-            state: WebsocketState::Idle(ws),
+            state: WebsocketStage::Idle(ws),
         }
     }
 
     pub fn connect(&mut self, url: String) {
-        let old_state = mem::replace(&mut self.state, WebsocketState::Empty);
+        let old_state = mem::replace(&mut self.state, WebsocketStage::Empty);
 
         let ws = match old_state {
-            WebsocketState::Idle(ws) => ws,
-            WebsocketState::Connected(ws) => ws,
+            WebsocketStage::Idle(ws) => ws,
+            WebsocketStage::Connected(ws) => ws,
             _ => {
                 unreachable!();
             }
@@ -48,21 +50,21 @@ impl<W: WebsocketIo> WebsocketService<W> {
             ws.connect(url).await;
             ws
         };
-        self.state = WebsocketState::Connecting(Box::pin(future));
+        self.state = WebsocketStage::Connecting(Box::pin(future));
     }
     pub async fn close_connection(&mut self) {
-        match std::mem::replace(&mut self.state, WebsocketState::Empty) {
-            WebsocketState::Idle(t) => {
-                self.state = WebsocketState::Idle(t);
+        match core::mem::replace(&mut self.state, WebsocketStage::Empty) {
+            WebsocketStage::Idle(t) => {
+                self.state = WebsocketStage::Idle(t);
             }
-            WebsocketState::Connecting(mut t) => {
+            WebsocketStage::Connecting(mut t) => {
                 let mut res = t.as_mut().await;
                 res.close().await;
-                self.state = WebsocketState::Idle(res);
+                self.state = WebsocketStage::Idle(res);
             }
-            WebsocketState::Connected(mut t) => {
+            WebsocketStage::Connected(mut t) => {
                 t.close().await;
-                self.state = WebsocketState::Idle(t);
+                self.state = WebsocketStage::Idle(t);
             }
             _ => {
                 unreachable!();
@@ -71,7 +73,7 @@ impl<W: WebsocketIo> WebsocketService<W> {
     }
     pub async fn send_msg(&mut self, msg: String) {
         match &mut self.state {
-            WebsocketState::Connected(ws) => {
+            WebsocketStage::Connected(ws) => {
                 ws.send(msg).await;
             }
             _ => {
@@ -86,22 +88,22 @@ impl<W: WebsocketIo> Future for WebsocketService<W> {
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         match &mut self.state {
-            WebsocketState::Idle(_) => Poll::Ready(WebsocketResponse::Disconnected),
-            WebsocketState::Connecting(fut) => match fut.as_mut().poll(cx) {
+            WebsocketStage::Idle(_) => Poll::Ready(WebsocketResponse::Disconnected),
+            WebsocketStage::Connecting(fut) => match fut.as_mut().poll(cx) {
                 Poll::Ready(ws) => {
-                    self.state = WebsocketState::Connected(ws);
+                    self.state = WebsocketStage::Connected(ws);
                     Poll::Ready(WebsocketResponse::Connected)
                 }
                 Poll::Pending => Poll::Pending,
             },
-            WebsocketState::Connected(ws) => match ws.poll_recv(cx) {
+            WebsocketStage::Connected(ws) => match ws.poll_recv(cx) {
                 Poll::Pending => Poll::Pending,
                 Poll::Ready(t) => match t {
                     Some(t) => Poll::Ready(WebsocketResponse::WsMsg(t)),
                     None => Poll::Ready(WebsocketResponse::Disconnected),
                 },
             },
-            WebsocketState::Empty => {
+            WebsocketStage::Empty => {
                 unreachable!();
             }
         }

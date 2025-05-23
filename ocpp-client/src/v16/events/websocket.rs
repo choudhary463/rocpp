@@ -1,3 +1,4 @@
+use alloc::string::String;
 use ocpp_core::{
     format::{
         frame::{Call, CallError},
@@ -7,29 +8,28 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    state_machine::core::ChargePointCore,
+    cp::ChargePointCore, interface::{Database, Secc}
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn connected(&mut self) {
+    pub fn ws_connected_helper(&mut self) {
         self.ws_connected = true;
         self.on_boot_connected();
     }
 
-    pub fn disconnected(&mut self) {
+    pub fn ws_disconnected_helper(&mut self) {
         self.ws_connected = false;
         self.on_outgoing_offline();
         self.on_boot_disconnected();
         self.connect(self.cms_url.clone());
     }
 
-    pub fn send_error(&mut self, uid: String, err: ProtocolError) {
+    pub(crate) fn send_error(&mut self, uid: String, err: ProtocolError) {
         let err = CallError::new(uid, err);
         self.send_ws_msg(err.encode());
     }
 
-    pub fn got_ws_msg(&mut self, msg: String) {
+    pub fn got_ws_msg_helper(&mut self, msg: String) {
         self.heartbeat_activity();
 
         let res = OcppMessage::<ProtocolError>::decode(msg);
@@ -130,7 +130,9 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                         srv.update_firmware_ocpp(unique_id, req);
                     });
                 }
-                _ => self.send_error(call.unique_id, ProtocolError::NotSupported),
+                _ => {
+                    self.send_error(call.unique_id, ProtocolError::NotSupported);
+                }
             },
             OcppMessage::CallResponse(res) => {
                 self.handle_call_response(Ok(res), true);
@@ -142,9 +144,6 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             }
         }
     }
-}
-
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
     fn is_registered(&self, action: &str) -> bool {
         match self.registration_status {
             RegistrationStatus::Accepted => true,

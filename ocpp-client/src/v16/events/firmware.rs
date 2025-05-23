@@ -1,17 +1,15 @@
+use alloc::vec::Vec;
 use ocpp_core::v16::types::{FirmwareStatus, Reason, ResetType};
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
-    state_machine::{
-        core::ChargePointCore,
-        firmware::{FirmwareInstallStatus, FirmwareState},
-    },
+    cp::ChargePointCore, interface::{Database, Secc, TimerId}, state_machine::{
+        firmware::{FirmwareInstallStatus, FirmwareState}
+    }
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn firmware_download_response(&mut self, res: Option<Vec<u8>>) {
-        match std::mem::replace(&mut self.firmware_state, FirmwareState::Idle) {
+    pub(crate) fn firmware_download_response_helper(&mut self, res: Option<Vec<u8>>) {
+        match core::mem::replace(&mut self.firmware_state, FirmwareState::Idle) {
             FirmwareState::Downloading(mut t) => match res {
                 Some(firmware_image) => {
                     self.send_firmware_status_notification(FirmwareStatus::Downloaded);
@@ -40,7 +38,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             }
         }
     }
-    pub fn firmware_install_response(&mut self, res: bool) {
+    pub fn firmware_install_response_helper(&mut self, res: bool) {
         let state = match res {
             true => FirmwareInstallStatus::InstallationSuccess,
             false => FirmwareInstallStatus::InstallationFailed,

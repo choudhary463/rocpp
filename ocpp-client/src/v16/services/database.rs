@@ -1,12 +1,11 @@
-use std::collections::{HashMap, VecDeque};
-
+use alloc::{collections::{btree_map::BTreeMap, vec_deque::VecDeque}, format, string::{String, ToString}, vec, vec::Vec};
 use ocpp_core::v16::{
     messages::{reserve_now::ReserveNowRequest, status_notification::StatusNotificationRequest},
     types::{AvailabilityType, ChargePointErrorCode, IdTagInfo},
 };
 
 use crate::v16::{
-    interface::{Database, TableOperation},
+    interface::{Database, SeccState, TableOperation},
     state_machine::{
         auth::{CachedEntry, LocalListChange},
         connector::ConnectorState,
@@ -15,9 +14,7 @@ use crate::v16::{
     },
 };
 
-use super::secc::SeccState;
-
-pub(crate) struct DatabaseService<D> {
+pub struct DatabaseService<D> {
     db: D,
 }
 
@@ -25,11 +22,11 @@ impl<D: Database> DatabaseService<D> {
     pub fn new(db: D) -> Self {
         Self { db }
     }
-    pub fn db_update_config(&mut self, key: String, value: String) {
+    pub(crate) fn db_update_config(&mut self, key: String, value: String) {
         self.db
             .transaction("config", vec![TableOperation::insert(key, value)]);
     }
-    pub fn db_update_local_list(&mut self, version: i32, changes: Vec<LocalListChange>) {
+    pub(crate) fn db_update_local_list(&mut self, version: i32, changes: Vec<LocalListChange>) {
         let mut ops: Vec<TableOperation> = changes
             .into_iter()
             .map(|f| match f {
@@ -45,12 +42,12 @@ impl<D: Database> DatabaseService<D> {
         ));
         self.db.transaction("local_list", ops);
     }
-    pub fn db_update_cache(&mut self, id_tag: String, info: CachedEntry) {
+    pub(crate) fn db_update_cache(&mut self, id_tag: String, info: CachedEntry) {
         let value = serde_json::to_string(&info).unwrap();
         self.db
             .transaction("cache", vec![TableOperation::insert(id_tag, value)]);
     }
-    pub fn db_delete_cache(&mut self, id_tags: Vec<String>) {
+    pub(crate) fn db_delete_cache(&mut self, id_tags: Vec<String>) {
         self.db.transaction(
             "cache",
             id_tags
@@ -59,13 +56,13 @@ impl<D: Database> DatabaseService<D> {
                 .collect(),
         );
     }
-    pub fn db_remove_reservation(&mut self, reservation_id: i32) {
+    pub(crate) fn db_remove_reservation(&mut self, reservation_id: i32) {
         self.db.transaction(
             "reservation",
             vec![TableOperation::delete(reservation_id.to_string())],
         );
     }
-    pub fn db_push_transaction_event(&mut self, index: u64, event: TransactionEvent) {
+    pub(crate) fn db_push_transaction_event(&mut self, index: u64, event: TransactionEvent) {
         let key = format!("event:{}", index);
         let value = serde_json::to_string(&event).unwrap();
         let mut ops = Vec::new();
@@ -82,7 +79,7 @@ impl<D: Database> DatabaseService<D> {
         }
         self.db.transaction("transaction", ops);
     }
-    pub fn db_pop_transaction_event(
+    pub(crate) fn db_pop_transaction_event(
         &mut self,
         index: u64,
         local_transaction_id: Option<u32>,
@@ -117,7 +114,7 @@ impl<D: Database> DatabaseService<D> {
         }
         self.db.transaction("transaction", ops);
     }
-    pub fn db_add_meter_tx(
+    pub(crate) fn db_add_meter_tx(
         &mut self,
         local_transaction_id: u32,
         index: usize,
@@ -128,33 +125,31 @@ impl<D: Database> DatabaseService<D> {
         self.db
             .transaction("transaction", vec![TableOperation::insert(key, value)]);
     }
-    pub fn db_change_firmware_state(&mut self, state: FirmwareInstallStatus) {
+    pub(crate) fn db_change_firmware_state(&mut self, state: FirmwareInstallStatus) {
         let key = "state".to_string();
         let value = serde_json::to_string(&state).unwrap();
         self.db
             .transaction("firmware", vec![TableOperation::insert(key, value)]);
     }
-    pub fn db_change_operative_state(&mut self, connector_id: usize, state: AvailabilityType) {
+    pub(crate) fn db_change_operative_state(&mut self, connector_id: usize, state: AvailabilityType) {
         let key = connector_id.to_string();
         let value = serde_json::to_string(&state).unwrap();
         self.db
             .transaction("availabilitytype", vec![TableOperation::insert(key, value)]);
     }
-    pub fn db_add_reservation(&mut self, reservation: ReserveNowRequest) {
+    pub(crate) fn db_add_reservation(&mut self, reservation: ReserveNowRequest) {
         let key = reservation.reservation_id.to_string();
         let value = serde_json::to_string(&reservation).unwrap();
         self.db
             .transaction("reservation", vec![TableOperation::insert(key, value)]);
     }
-    pub fn db_init(&mut self, default_configs: HashMap<String, String>, clear_db: bool) {
+    pub(crate) fn db_init(&mut self, mut default_configs: Vec<(String, String)>, clear_db: bool) {
         self.db.init();
         let mut previous_configs = self.db.get_all("previous_configs");
-        let mut curruent_configs: Vec<(String, String)> =
-            default_configs.clone().into_iter().collect();
 
         previous_configs.sort();
-        curruent_configs.sort();
-        if clear_db || curruent_configs != previous_configs {
+        default_configs.sort();
+        if clear_db || default_configs != previous_configs {
             self.db.delete_table("previous_configs");
             self.db.delete_table("config");
             self.db.delete_table("cache");
@@ -165,7 +160,7 @@ impl<D: Database> DatabaseService<D> {
 
             self.db.transaction(
                 "previous_configs",
-                curruent_configs
+                default_configs
                     .clone()
                     .into_iter()
                     .map(|(key, value)| TableOperation::insert(key, value))
@@ -173,17 +168,17 @@ impl<D: Database> DatabaseService<D> {
             );
             self.db.transaction(
                 "config",
-                curruent_configs
+                default_configs
                     .into_iter()
                     .map(|(key, value)| TableOperation::insert(key, value))
                     .collect(),
             );
         }
     }
-    pub fn get_all_config(&mut self) -> HashMap<String, String> {
-        self.db.get_all("config").into_iter().collect()
+    pub(crate) fn get_all_config(&mut self) -> Vec<(String, String)> {
+        self.db.get_all("config")
     }
-    pub fn get_cache_data(&mut self) -> (HashMap<String, CachedEntry>, VecDeque<String>) {
+    pub(crate) fn get_cache_data(&mut self) -> (BTreeMap<String, CachedEntry>, VecDeque<String>) {
         let mut db_cache_data: Vec<_> = self
             .db
             .get_all("cache")
@@ -191,7 +186,7 @@ impl<D: Database> DatabaseService<D> {
             .map(|f| (f.0, serde_json::from_str::<CachedEntry>(&f.1).unwrap()))
             .collect();
         db_cache_data.sort_by_key(|(_, entry)| entry.updated_at);
-        let mut cache = HashMap::new();
+        let mut cache = BTreeMap::new();
         let mut usage_order = VecDeque::new();
         for (tag, entry) in db_cache_data {
             cache.insert(tag.clone(), entry);
@@ -199,9 +194,9 @@ impl<D: Database> DatabaseService<D> {
         }
         (cache, usage_order)
     }
-    pub fn get_local_list(&mut self) -> (i32, HashMap<String, IdTagInfo>) {
+    pub(crate) fn get_local_list(&mut self) -> (i32, BTreeMap<String, IdTagInfo>) {
         let mut version = 0;
-        let mut res = HashMap::new();
+        let mut res = BTreeMap::new();
         for (key, value) in self.db.get_all("local_list") {
             if key.as_str() == "version#" {
                 version = value.parse().unwrap();
@@ -223,7 +218,7 @@ impl<D: Database> DatabaseService<D> {
         let mut availability = vec![AvailabilityType::Operative; num_connectors];
         self.db
             .get_all("availabilitytype")
-            .into_iter()
+            .iter()
             .for_each(|(key, value)| {
                 let connector_id: usize = key.parse().unwrap();
                 let kind = serde_json::from_str::<AvailabilityType>(&value).unwrap();
@@ -231,7 +226,7 @@ impl<D: Database> DatabaseService<D> {
             });
         availability
     }
-    pub fn get_connector_state(
+    pub(crate) fn get_connector_state(
         &mut self,
         num_connectors: usize,
     ) -> (Vec<ConnectorState>, Vec<StatusNotificationRequest>) {
@@ -267,7 +262,7 @@ impl<D: Database> DatabaseService<D> {
         }
         (connector_state, status)
     }
-    pub fn get_firmware_state(&mut self) -> FirmwareInstallStatus {
+    pub(crate) fn get_firmware_state(&mut self) -> FirmwareInstallStatus {
         let mut res = FirmwareInstallStatus::NA;
         if let Some(value) = self.db.get("firmware", "state") {
             let state = serde_json::from_str(&value).unwrap();
@@ -281,15 +276,15 @@ impl<D: Database> DatabaseService<D> {
         u32,
         u64,
         u64,
-        HashMap<u32, i32>,
-        HashMap<u32, usize>,
-        HashMap<u32, Vec<MeterValueLocal>>,
+        BTreeMap<u32, i32>,
+        BTreeMap<u32, usize>,
+        BTreeMap<u32, Vec<MeterValueLocal>>,
         VecDeque<TransactionEvent>,
     ) {
-        let mut transaction_map: HashMap<u32, i32> = HashMap::new();
-        let mut transaction_connector_map: HashMap<u32, usize> = HashMap::new();
-        let mut stop_transaction_map_temp: HashMap<u32, Vec<(usize, MeterValueLocal)>> =
-            HashMap::new();
+        let mut transaction_map: BTreeMap<u32, i32> = BTreeMap::new();
+        let mut transaction_connector_map: BTreeMap<u32, usize> = BTreeMap::new();
+        let mut stop_transaction_map_temp: BTreeMap<u32, Vec<(usize, MeterValueLocal)>> =
+            BTreeMap::new();
         let mut max_transaction_id: u32 = 0;
         let mut events: Vec<(u64, TransactionEvent)> = Vec::new();
         for (key, value) in self.db.get_all("transaction") {
@@ -332,7 +327,7 @@ impl<D: Database> DatabaseService<D> {
             .zip(events.last().map(|x| x.0 + 1))
             .unwrap_or((0, 0));
 
-        let mut stop_transaction_map: HashMap<u32, Vec<MeterValueLocal>> = HashMap::new();
+        let mut stop_transaction_map: BTreeMap<u32, Vec<MeterValueLocal>> = BTreeMap::new();
 
         for (key, mut list) in stop_transaction_map_temp {
             list.sort_by_key(|&(index, _)| index);

@@ -1,3 +1,4 @@
+use alloc::string::String;
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -7,12 +8,11 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    state_machine::{connector::ConnectorState, core::ChargePointCore},
+    cp::ChargePointCore, interface::{Database, Secc}, state_machine::connector::ConnectorState
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn get_connector_with_reservation(&self, reservation_id: i32) -> Option<usize> {
+    pub(crate) fn get_connector_with_reservation(&self, reservation_id: i32) -> Option<usize> {
         for connector_id in 0..self.configs.number_of_connectors.value {
             if let ConnectorState::Reserved {
                 reservation_id: res_id,
@@ -25,7 +25,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
         None
     }
-    pub fn cancel_reservation_ocpp(&mut self, unique_id: String, req: CancelReservationRequest) {
+    pub(crate) fn cancel_reservation_ocpp(&mut self, unique_id: String, req: CancelReservationRequest) {
         let mut new_status = None;
         let status =
             if let Some(connector_id) = self.get_connector_with_reservation(req.reservation_id) {

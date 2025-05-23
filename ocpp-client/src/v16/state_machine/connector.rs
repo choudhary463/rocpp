@@ -1,14 +1,15 @@
+use alloc::string::String;
 use ocpp_core::v16::{
     messages::status_notification::StatusNotificationRequest,
     types::{ChargePointErrorCode, ChargePointStatus},
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::{secc::SeccState, timeout::TimerId},
+    interface::{Database, Secc, SeccState, TimerId},
+    cp::ChargePointCore
 };
 
-use super::{call::CallAction, core::ChargePointCore};
+use super::call::CallAction;
 
 #[derive(Clone, Debug)]
 pub(crate) enum ConnectorState {
@@ -142,14 +143,14 @@ pub enum StatusNotificationState {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn send_status_notification(&mut self, connector_id: usize) {
+    pub(crate) fn send_status_notification(&mut self, connector_id: usize) {
         self.enqueue_call(
             CallAction::StatusNotification,
             self.connector_status_notification[connector_id].clone(),
         );
         self.connector_status_notification_state[connector_id] = StatusNotificationState::Idle;
     }
-    pub fn on_status_notification_online(&mut self) {
+    pub(crate) fn on_status_notification_online(&mut self) {
         for connector_id in 0..self.configs.number_of_connectors.value {
             match &self.connector_status_notification_state[connector_id] {
                 StatusNotificationState::Offline(last_sent) => {
@@ -176,7 +177,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             }
         }
     }
-    pub fn on_status_notification_offline(&mut self) {
+    pub(crate) fn on_status_notification_offline(&mut self) {
         for connector_id in 0..self.configs.number_of_connectors.value {
             match &self.connector_status_notification_state[connector_id] {
                 StatusNotificationState::Idle => {
@@ -197,7 +198,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             }
         }
     }
-    pub fn sync_connector_states(
+    pub(crate) fn sync_connector_states(
         &mut self,
         connector_id: usize,
         error_code: Option<ChargePointErrorCode>,
@@ -217,7 +218,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             );
         }
     }
-    pub fn change_connector_state_with_error_code(
+    pub(crate) fn change_connector_state_with_error_code(
         &mut self,
         connector_id: usize,
         state: ConnectorState,
@@ -227,10 +228,10 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         self.connector_state[connector_id] = state;
         self.sync_connector_states(connector_id, error_code, info);
     }
-    pub fn change_connector_state(&mut self, connector_id: usize, state: ConnectorState) {
+    pub(crate) fn change_connector_state(&mut self, connector_id: usize, state: ConnectorState) {
         self.change_connector_state_with_error_code(connector_id, state, None, None);
     }
-    pub fn trigger_status_notification(&mut self, connector_id: usize) {
+    pub(crate) fn trigger_status_notification(&mut self, connector_id: usize) {
         for connector_id in if connector_id == 0 {
             0..self.configs.number_of_connectors.value
         } else {

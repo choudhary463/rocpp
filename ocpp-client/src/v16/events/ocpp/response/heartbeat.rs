@@ -3,13 +3,13 @@ use ocpp_core::v16::messages::heart_beat::HeartbeatResponse;
 use crate::v16::{
     interface::{Database, Secc},
     state_machine::{
-        core::{ChargePointCore, OcppError},
         heartbeat::HeartbeatState,
     },
+    cp::{ChargePointCore, OcppError},
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn heartbeat_response(&mut self, res: Result<HeartbeatResponse, OcppError>) {
+    pub(crate) fn heartbeat_response(&mut self, res: Result<HeartbeatResponse, OcppError>) {
         match res {
             Ok(t) => {
                 self.set_time(t.current_time);

@@ -1,9 +1,8 @@
 use ocpp_core::v16::types::RegistrationStatus;
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
-    state_machine::core::ChargePointCore,
+    interface::{Database, Secc, TimerId},
+    cp::ChargePointCore,
 };
 
 use super::call::CallAction;
@@ -15,24 +14,24 @@ pub(crate) enum BootState {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn send_boot_notification(&mut self) {
+    pub(crate) fn send_boot_notification(&mut self) {
         self.enqueue_call(CallAction::BootNotification, self.boot_info.clone());
         self.boot_state = BootState::WaitingForResponse
     }
 
-    pub fn notify_online(&mut self) {
+    pub(crate) fn notify_online(&mut self) {
         self.on_heartbeat_online();
         self.on_transaction_online();
         self.on_status_notification_online();
         self.on_firmware_online();
     }
 
-    pub fn notify_offline(&mut self) {
+    pub(crate) fn notify_offline(&mut self) {
         self.on_heartbeat_offline();
         self.on_status_notification_offline();
     }
 
-    pub fn on_boot_connected(&mut self) {
+    pub(crate) fn on_boot_connected(&mut self) {
         match &self.boot_state {
             BootState::Idle => {
                 if self.registration_status != RegistrationStatus::Accepted {
@@ -47,7 +46,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
     }
 
-    pub fn on_boot_disconnected(&mut self) {
+    pub(crate) fn on_boot_disconnected(&mut self) {
         match &self.boot_state {
             BootState::Sleeping => {
                 self.remove_timeout(TimerId::Boot);
@@ -64,7 +63,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         self.boot_state = BootState::Idle;
     }
 
-    pub fn trigger_boot(&mut self) {
+    pub(crate) fn trigger_boot(&mut self) {
         match &self.boot_state {
             BootState::Idle => {
                 self.send_boot_notification();

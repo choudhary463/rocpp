@@ -1,3 +1,4 @@
+use alloc::string::String;
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -9,7 +10,8 @@ use ocpp_core::{
 use crate::v16::{
     interface::{Database, Secc},
     services::database::DatabaseService,
-    state_machine::{config::OcppConfig, core::ChargePointCore},
+    state_machine::{config::OcppConfig},
+    cp::ChargePointCore
 };
 
 macro_rules! gen_update_ocpp_match {
@@ -24,7 +26,7 @@ macro_rules! gen_update_ocpp_match {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn change_configuration_ocpp(
+    pub(crate) fn change_configuration_ocpp(
         &mut self,
         unique_id: String,
         req: ChangeConfigurationRequest,
@@ -51,7 +53,6 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
     ) -> Result<bool, ConfigurationStatus> {
         let (cfg_ref, db) = accessor(self);
         let new_val = (cfg_ref.parser_fn)(&raw)
-            .ok()
             .ok_or(ConfigurationStatus::Rejected)?;
 
         if let Some(validator) = &cfg_ref.validator {

@@ -52,8 +52,8 @@ pub async fn run() {
                     value
                 };
                 let measurands = match MeterDataType::parse_meter_data(&value) {
-                    Ok(t) => t,
-                    Err(e) => return AfterValidation::Failed(e),
+                    Some(t) => t,
+                    None => return AfterValidation::Failed(anyhow!("measurand parse error")),
                 };
                 let last_ts: Arc<Mutex<Option<DateTime<Utc>>>> = Arc::new(Mutex::new(None));
                 let mut chain = TestChain::new();

@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use ocpp_client::v16::{MeterData, MeterDataType, Secc};
 use ocpp_core::v16::types::ChargePointStatus;
 use tokio_util::sync::CancellationToken;
@@ -15,6 +17,9 @@ impl MockSecc {
 }
 
 impl Secc for MockSecc {
+    fn get_boot_time(&self) -> u128 {
+        Instant::now().elapsed().as_micros()
+    }
     fn hard_reset(&self) {
         self.hard_reset_toekn.cancel();
     }

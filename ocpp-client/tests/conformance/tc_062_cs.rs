@@ -14,7 +14,7 @@ pub async fn run() {
     let mut chain = test_chain!(
         BootState::default(num_connectors).get_test_chain(),
         call(DataTransferRequest {
-            vendor_string: format!("vendor"),
+            vendor_id: format!("vendor"),
             message_id: None,
             data: None
         })

@@ -1,16 +1,15 @@
 use ocpp_core::v16::messages::stop_transaction::StopTransactionResponse;
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
+    interface::{Database, Secc, TimerId},
     state_machine::{
-        core::{ChargePointCore, OcppError},
         transaction::{TransactionEvent, TransactionEventState},
     },
+    cp::{ChargePointCore, OcppError},
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn stop_transaction_response(&mut self, res: Result<StopTransactionResponse, OcppError>) {
+    pub(crate) fn stop_transaction_response(&mut self, res: Result<StopTransactionResponse, OcppError>) {
         let (local_transaction_id, id_tag) = match self.transaction_queue.front() {
             Some(TransactionEvent::Stop(t)) => (t.local_transaction_id, t.id_tag.clone()),
             _ => {

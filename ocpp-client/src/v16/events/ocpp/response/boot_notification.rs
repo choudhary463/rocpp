@@ -3,16 +3,13 @@ use ocpp_core::v16::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
-    state_machine::{
-        boot::BootState,
-        core::{ChargePointCore, OcppError},
-    },
+    interface::{Database, Secc, TimerId},
+    state_machine::boot::BootState,
+    cp::{ChargePointCore, OcppError}
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn boot_notification_response(&mut self, res: Result<BootNotificationResponse, OcppError>) {
+    pub(crate) fn boot_notification_response(&mut self, res: Result<BootNotificationResponse, OcppError>) {
         match &self.boot_state {
             BootState::WaitingForResponse => {
                 let prev = self.registration_status.clone();

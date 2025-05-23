@@ -1,13 +1,13 @@
+use alloc::{vec, vec::Vec};
 use chrono::Timelike;
 use ocpp_core::v16::types::{ReadingContext, SampledValue};
 
 use crate::v16::{
-    interface::{Database, MeterDataType, Secc},
-    services::timeout::TimerId,
+    interface::{Database, MeterDataType, Secc, TimerId},
+    cp::ChargePointCore
 };
 
 use super::{
-    core::ChargePointCore,
     transaction::{MeterValueLocal, MeterValuesEvent, TransactionEvent},
 };
 
@@ -25,14 +25,14 @@ pub(crate) enum MeterDataKind {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn set_sampled_meter_sleep_state(&mut self, connector_id: usize) {
+    pub(crate) fn set_sampled_meter_sleep_state(&mut self, connector_id: usize) {
         self.add_timeout(
             TimerId::MeterSampled(connector_id),
             self.configs.meter_value_sample_interval.value,
         );
         self.sampled_meter_state[connector_id] = MeterState::Sleep;
     }
-    pub fn set_aligned_meter_sleep_state(&mut self) {
+    pub(crate) fn set_aligned_meter_sleep_state(&mut self) {
         if self.configs.clock_aligned_data_interval.value > 0 {
             if let Some(time) = self.get_time() {
                 let seconds = time.num_seconds_from_midnight() as u64;
@@ -45,7 +45,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             }
         }
     }
-    pub fn start_meter_data(&mut self, connector_id: usize) {
+    pub(crate) fn start_meter_data(&mut self, connector_id: usize) {
         if self.configs.meter_value_sample_interval.value > 0 {
             match &self.sampled_meter_state[connector_id] {
                 MeterState::Idle => {
@@ -57,12 +57,12 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             }
         }
     }
-    pub fn stop_meter_data(&mut self, connector_id: usize) {
+    pub(crate) fn stop_meter_data(&mut self, connector_id: usize) {
         if let MeterState::Sleep = &self.sampled_meter_state[connector_id] {
             self.remove_timeout(TimerId::MeterSampled(connector_id));
         }
     }
-    pub fn add_meter_event(
+    pub(crate) fn add_meter_event(
         &mut self,
         connector_id: usize,
         local_transaction_id: Option<u32>,
@@ -83,7 +83,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             self.add_transaction_event(TransactionEvent::Meter(meter_event));
         }
     }
-    pub fn add_stop_transaction_sampled_data(
+    pub(crate) fn add_stop_transaction_sampled_data(
         &mut self,
         connector_id: usize,
         local_transaction_id: u32,
@@ -99,7 +99,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             self.add_stop_transaction_meter_value(local_transaction_id, values);
         }
     }
-    pub fn trigger_meter_values(&mut self, connector_id: usize) {
+    pub(crate) fn trigger_meter_values(&mut self, connector_id: usize) {
         for connector_id in if connector_id == 0 {
             0..self.configs.number_of_connectors.value
         } else {

@@ -1,5 +1,4 @@
-use std::{collections::HashSet, time::Instant};
-
+use alloc::{collections::btree_set::BTreeSet, string::String, vec, vec::Vec};
 use chrono::{DateTime, Utc};
 use ocpp_core::v16::{
     messages::{
@@ -10,13 +9,10 @@ use ocpp_core::v16::{
 };
 use serde::Serialize;
 
-use crate::v16::{
-    interface::{Database, Secc},
-    services::secc::SeccState,
-};
+use crate::v16::{interface::{Database, Secc, SeccState}, cp::ChargePointCore};
 
 use super::{
-    call::CallAction, connector::ConnectorState, core::ChargePointCore, firmware::FirmwareState,
+    call::CallAction, clock::Instant, connector::ConnectorState, firmware::FirmwareState
 };
 
 #[derive(Clone)]
@@ -45,7 +41,7 @@ impl<'de> serde::de::Deserialize<'de> for TransactionTime {
         let opt = Option::<DateTime<Utc>>::deserialize(deserializer)?;
         match opt {
             Some(dt) => Ok(TransactionTime::Known(dt)),
-            None => Ok(TransactionTime::Unaligned(Instant::now())),
+            None => Ok(TransactionTime::Unaligned(Instant::default())),
         }
     }
 }
@@ -120,7 +116,7 @@ impl TransactionEvent {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn pop_event(
+    pub(crate) fn pop_event(
         &mut self,
         local_transaction_id: Option<u32>,
         transaction_id: Option<i32>,
@@ -158,7 +154,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         self.transaction_event_retries = 0;
         self.process_transaction();
     }
-    pub fn process_transaction(&mut self) {
+    pub(crate) fn process_transaction(&mut self) {
         loop {
             if self.call_permission() {
                 if let (TransactionEventState::Idle, Some(tx)) = (
@@ -223,14 +219,14 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             }
         }
     }
-    pub fn get_transaction_time(&self) -> TransactionTime {
+    pub(crate) fn get_transaction_time(&self) -> TransactionTime {
         if let Some(date) = self.get_time() {
             TransactionTime::Known(date)
         } else {
-            TransactionTime::Unaligned(Instant::now())
+            TransactionTime::Unaligned(Instant::now(&self.secc))
         }
     }
-    pub fn add_transaction_event(&mut self, mut event: TransactionEvent) {
+    pub(crate) fn add_transaction_event(&mut self, mut event: TransactionEvent) {
         match &mut event {
             TransactionEvent::Start(t) => {
                 self.transaction_connector_map
@@ -269,10 +265,10 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         };
         self.db.db_add_meter_tx(local_transaction_id, index, values);
     }
-    pub fn on_transaction_online(&mut self) {
+    pub(crate) fn on_transaction_online(&mut self) {
         self.process_transaction();
     }
-    pub fn start_transaction(
+    pub(crate) fn start_transaction(
         &mut self,
         connector_id: usize,
         id_tag: String,
@@ -305,7 +301,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         self.add_transaction_event(TransactionEvent::Start(start_event));
     }
 
-    pub fn stop_transaction(
+    pub(crate) fn stop_transaction(
         &mut self,
         connector_id: usize,
         id_tag: Option<String>,
@@ -354,7 +350,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
     }
 
-    pub fn deauthorize_transaction(&mut self, local_transaction_id: u32) {
+    pub(crate) fn deauthorize_transaction(&mut self, local_transaction_id: u32) {
         if let Some(connector_id) = self.transaction_connector_map.get(&local_transaction_id) {
             if let ConnectorState::Transaction {
                 local_transaction_id: local_transaction_id_tx,
@@ -372,8 +368,8 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             }
         }
     }
-    pub fn handle_unfinished_transactions(&mut self) {
-        let mut unfinished_txn = HashSet::new();
+    pub(crate) fn handle_unfinished_transactions(&mut self) {
+        let mut unfinished_txn = BTreeSet::new();
         for local_transaction_id in self.transaction_connector_map.keys() {
             unfinished_txn.insert(*local_transaction_id);
         }

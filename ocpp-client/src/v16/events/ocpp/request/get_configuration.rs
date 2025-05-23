@@ -1,3 +1,4 @@
+use alloc::{string::{String, ToString}, vec::Vec};
 use ocpp_core::{
     format::{
         frame::{CallError, CallResult},
@@ -12,7 +13,8 @@ use ocpp_core::{
 
 use crate::v16::{
     interface::{Database, Secc},
-    state_machine::{config::OcppConfig, core::ChargePointCore},
+    state_machine::{config::OcppConfig},
+    cp::ChargePointCore
 };
 
 macro_rules! gen_get_ocpp_match {
@@ -27,7 +29,7 @@ macro_rules! gen_get_ocpp_match {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn get_configuration_ocpp(&mut self, unique_id: String, req: GetConfigurationRequest) {
+    pub(crate) fn get_configuration_ocpp(&mut self, unique_id: String, req: GetConfigurationRequest) {
         if req.key.as_ref().map(|t| t.len()).unwrap_or(0)
             > self.configs.get_configuration_max_keys.value
         {

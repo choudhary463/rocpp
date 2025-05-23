@@ -1,3 +1,4 @@
+use alloc::{string::String, vec::Vec};
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -8,7 +9,8 @@ use ocpp_core::{
 
 use crate::v16::{
     interface::{Database, Secc},
-    state_machine::{auth::LocalListChange, core::ChargePointCore},
+    state_machine::{auth::LocalListChange},
+    cp::ChargePointCore
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
@@ -33,18 +35,17 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                     return UpdateStatus::VersionMismatch;
                 }
 
-                let mut seen = std::collections::HashSet::new();
                 let mut net_delta = 0;
+
+                if auth_list.windows(2).any(|w| w[0].id_tag == w[1].id_tag) {
+                    return UpdateStatus::Failed;
+                }
 
                 for AuthorizationData {
                     id_tag,
                     id_tag_info,
                 } in auth_list
                 {
-                    if seen.contains(&id_tag) {
-                        return UpdateStatus::Failed;
-                    }
-
                     match id_tag_info {
                         Some(info) => {
                             if !self.local_list_entries.contains_key(&id_tag) {
@@ -64,7 +65,6 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                             }
                         }
                     }
-                    seen.insert(id_tag);
                 }
                 if (self.local_list_entries.len() as isize + net_delta)
                     > self.configs.local_auth_list_max_length.value as isize
@@ -73,17 +73,11 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                 }
             }
             UpdateType::Full => {
-                let mut seen = std::collections::HashSet::new();
-
                 for AuthorizationData {
                     id_tag,
                     id_tag_info,
                 } in auth_list
                 {
-                    if seen.contains(&id_tag) {
-                        return UpdateStatus::Failed;
-                    }
-
                     if let Some(info) = id_tag_info {
                         changes.push(LocalListChange::Upsert {
                             id_tag: id_tag.clone(),
@@ -92,7 +86,6 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                     } else {
                         return UpdateStatus::Failed;
                     }
-                    seen.insert(id_tag);
                 }
 
                 if changes.len() >= self.configs.local_auth_list_max_length.value {
@@ -100,7 +93,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                 }
 
                 for old_tag in self.local_list_entries.keys() {
-                    if !seen.contains(old_tag) {
+                    if changes.iter().all(|f| f.get_id_tag() != old_tag) {
                         changes.push(LocalListChange::Delete {
                             id_tag: old_tag.clone(),
                         });
@@ -130,7 +123,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         UpdateStatus::Accepted
     }
 
-    pub fn send_local_list_ocpp(&mut self, unique_id: String, req: SendLocalListRequest) {
+    pub(crate) fn send_local_list_ocpp(&mut self, unique_id: String, req: SendLocalListRequest) {
         let status = self.send_local_list_ocpp_helper(req);
         let payload = SendLocalListResponse { status };
         let res = CallResult::new(unique_id, payload);

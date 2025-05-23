@@ -1,6 +1,7 @@
-use std::{collections::HashMap, str::FromStr};
+use core::str::FromStr;
 
-use anyhow::anyhow;
+use alloc::{boxed::Box, format, string::{String, ToString}, vec::Vec};
+
 use ocpp_core::v16::types::{Measurand, Phase};
 
 use crate::v16::{
@@ -15,7 +16,7 @@ pub(crate) struct OcppConfig<T> {
     pub read: bool,
     pub write: bool,
     pub reboot_required: bool,
-    pub parser_fn: fn(&str) -> anyhow::Result<T>,
+    pub parser_fn: fn(&str) -> Option<T>,
     pub format_fn: fn(&T) -> String,
     pub validator: Option<Box<dyn Fn(&T) -> bool + Send>>,
 }
@@ -32,7 +33,7 @@ impl<T> OcppConfig<T> {
             read: false,
             write: false,
             reboot_required: false,
-            parser_fn: |_| Err(anyhow!(String::new())),
+            parser_fn: |_| None,
             format_fn: |_| String::new(),
             validator: None,
         }
@@ -40,13 +41,13 @@ impl<T> OcppConfig<T> {
     pub fn with_std(mut self) -> Self
     where
         T: ToString + FromStr,
-        <T as FromStr>::Err: std::error::Error + Send + Sync + 'static,
+        <T as FromStr>::Err: core::error::Error + Send + Sync + 'static,
     {
-        self.parser_fn = |s| s.parse().map_err(anyhow::Error::new);
+        self.parser_fn = |s| s.parse().ok();
         self.format_fn = |v| v.to_string();
         self
     }
-    pub fn with_parse(mut self, parser_fn: fn(&str) -> anyhow::Result<T>) -> Self {
+    pub fn with_parse(mut self, parser_fn: fn(&str) -> Option<T>) -> Self {
         self.parser_fn = parser_fn;
         self
     }
@@ -238,7 +239,7 @@ impl OcppConfigs {
             unlock_connector_on_evside_disconnect: OcppConfig::<bool>::new().with_std().read(),
         }
     }
-    pub fn build(db_configs: HashMap<String, String>) -> Self {
+    pub fn build(db_configs: Vec<(String, String)>) -> Self {
         let mut config = Self::new();
         for (key, value) in db_configs {
             let key = key.as_str();
@@ -262,7 +263,7 @@ impl OcppConfigs {
 }
 
 impl MeterDataType {
-    pub fn parse_meter_data(s: &str) -> anyhow::Result<Vec<MeterDataType>> {
+    pub fn parse_meter_data(s: &str) -> Option<Vec<MeterDataType>> {
         s.split(',')
             .map(|token| {
                 let token = token.trim();
@@ -274,22 +275,22 @@ impl MeterDataType {
                     let phase = serde_json::from_str::<Phase>(&format!("\"{}\"", &right[1..]));
 
                     match (measurand, phase) {
-                        (Ok(measurand), Ok(phase)) => Ok(MeterDataType {
+                        (Ok(measurand), Ok(phase)) => Some(MeterDataType {
                             measurand,
                             phase: Some(phase),
                         }),
                         _ => {
                             let measurand =
-                                serde_json::from_str::<Measurand>(&format!("\"{}\"", token))?;
-                            Ok(MeterDataType {
+                                serde_json::from_str::<Measurand>(&format!("\"{}\"", token)).ok()?;
+                            Some(MeterDataType {
                                 measurand,
                                 phase: None,
                             })
                         }
                     }
                 } else {
-                    let measurand = serde_json::from_str::<Measurand>(&format!("\"{}\"", token))?;
-                    Ok(MeterDataType {
+                    let measurand = serde_json::from_str::<Measurand>(&format!("\"{}\"", token)).ok()?;
+                    Some(MeterDataType {
                         measurand,
                         phase: None,
                     })

@@ -1,3 +1,4 @@
+use alloc::string::String;
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -7,16 +8,15 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
+    interface::{Database, Secc, TimerId},
     state_machine::{
-        core::ChargePointCore,
         firmware::{FirmwareDownloadInfo, FirmwareState},
     },
+    cp::ChargePointCore,
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn update_firmware_ocpp(&mut self, unique_id: String, req: UpdateFirmwareRequest) {
+    pub(crate) fn update_firmware_ocpp(&mut self, unique_id: String, req: UpdateFirmwareRequest) {
         let payload = UpdateFirmwareResponse {};
         let res = CallResult::new(unique_id, payload);
         self.send_ws_msg(res.encode());

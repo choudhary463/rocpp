@@ -1,12 +1,13 @@
+use alloc::{string::{String, ToString}, vec};
 use chrono::{DateTime, Utc};
 use ocpp_core::v16::{
     messages::authorize::AuthorizeRequest,
     types::{AuthorizationStatus, IdTagInfo},
 };
 
-use crate::v16::interface::{Database, Secc};
+use crate::v16::{interface::{Database, Secc}, cp::ChargePointCore};
 
-use super::{call::CallAction, connector::ConnectorState, core::ChargePointCore};
+use super::{call::CallAction, connector::ConnectorState};
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 pub(crate) struct CachedEntry {
@@ -18,6 +19,15 @@ pub(crate) struct CachedEntry {
 pub(crate) enum LocalListChange {
     Upsert { id_tag: String, info: IdTagInfo },
     Delete { id_tag: String },
+}
+
+impl LocalListChange {
+    pub fn get_id_tag(&self) -> &str {
+        match self {
+            Self::Upsert { id_tag, .. } => &id_tag,
+            Self::Delete { id_tag } => &id_tag
+        }
+    }
 }
 
 pub(crate) enum AuthorizeStatus {
@@ -34,14 +44,14 @@ pub(crate) enum AuthorizeStatus {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn send_authorize_request(&mut self, connector_id: usize, id_tag: String) {
+    pub(crate) fn send_authorize_request(&mut self, connector_id: usize, id_tag: String) {
         self.pending_auth_requests
             .push_back((connector_id, id_tag.clone()));
         let payload = AuthorizeRequest { id_tag };
         self.enqueue_call(CallAction::Authorize, payload);
     }
 
-    pub fn remove_from_cache(&mut self, id_tag: &str) {
+    pub(crate) fn remove_from_cache(&mut self, id_tag: &str) {
         self.db.db_delete_cache(vec![id_tag.into()]);
         if self.authorization_cache.remove(id_tag).is_some() {
             if let Some(pos) = self.cache_usage_order.iter().position(|t| t == id_tag) {
@@ -50,7 +60,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
     }
 
-    pub fn update_cache(&mut self, id_tag: String, info: IdTagInfo) {
+    pub(crate) fn update_cache(&mut self, id_tag: String, info: IdTagInfo) {
         if !self.configs.authorization_cache_enabled.value {
             return;
         }
@@ -81,7 +91,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
     }
 
-    pub fn evaluate_id_tag_auth(&mut self, id_tag: String, connector_id: usize) -> AuthorizeStatus {
+    pub(crate) fn evaluate_id_tag_auth(&mut self, id_tag: String, connector_id: usize) -> AuthorizeStatus {
         let is_auth_req_in_queue = self
             .pending_auth_requests
             .iter()

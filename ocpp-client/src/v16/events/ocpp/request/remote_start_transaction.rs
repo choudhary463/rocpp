@@ -1,3 +1,4 @@
+use alloc::string::String;
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -10,7 +11,8 @@ use ocpp_core::{
 
 use crate::v16::{
     interface::{Database, Secc},
-    state_machine::{auth::AuthorizeStatus, connector::ConnectorState, core::ChargePointCore},
+    state_machine::{auth::AuthorizeStatus, connector::ConnectorState},
+    cp::ChargePointCore
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
@@ -50,7 +52,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
         None
     }
-    pub fn remote_start_transaction_ocpp(
+    pub(crate) fn remote_start_transaction_ocpp(
         &mut self,
         unique_id: String,
         req: RemoteStartTransactionRequest,

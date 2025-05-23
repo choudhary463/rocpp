@@ -1,15 +1,14 @@
+use alloc::{string::String, vec::Vec};
 use chrono::{DateTime, Utc};
 use ocpp_core::v16::types::ResetType;
-use std::time::{Duration, Instant};
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
-    state_machine::core::ChargePointCore,
+    interface::{Database, Secc, TimerId},
+    cp::ChargePointCore,
 };
 
 #[derive(Debug)]
-pub(crate) enum CoreActions {
+pub enum CoreActions {
     Connect(String),
     SendWsMsg(String),
     StartDiagnosticUpload {
@@ -17,11 +16,11 @@ pub(crate) enum CoreActions {
         file_name: String,
         start_time: Option<DateTime<Utc>>,
         stop_time: Option<DateTime<Utc>>,
+        timeout: u64
     },
-    CancelDiagnosticUpload,
     DownloadFirmware(String),
     InstallFirmware(Vec<u8>),
-    AddTimeout(TimerId, Instant),
+    AddTimeout(TimerId, u64),
     RemoveTimeout(TimerId),
     SoftReset,
 }
@@ -44,6 +43,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         file_name: String,
         start_time: Option<DateTime<Utc>>,
         stop_time: Option<DateTime<Utc>>,
+        timeout: u64
     ) {
         self.queued_actions
             .push_back(CoreActions::StartDiagnosticUpload {
@@ -51,12 +51,8 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                 file_name,
                 start_time,
                 stop_time,
+                timeout
             });
-    }
-
-    pub fn cancel_diagnostics_upload(&mut self) {
-        self.queued_actions
-            .push_back(CoreActions::CancelDiagnosticUpload);
     }
 
     pub fn download_firmware(&mut self, firmware_url: String) {
@@ -72,7 +68,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
     pub fn add_timeout(&mut self, timer_id: TimerId, timeout_secs: u64) {
         self.queued_actions.push_back(CoreActions::AddTimeout(
             timer_id,
-            Instant::now() + Duration::from_secs(timeout_secs),
+            timeout_secs,
         ));
     }
 

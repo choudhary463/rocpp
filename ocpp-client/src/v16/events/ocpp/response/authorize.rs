@@ -2,11 +2,11 @@ use ocpp_core::v16::messages::authorize::AuthorizeResponse;
 
 use crate::v16::{
     interface::{Database, Secc},
-    state_machine::core::{ChargePointCore, OcppError},
+    cp::{ChargePointCore, OcppError},
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn authorized_response(&mut self, res: Result<AuthorizeResponse, OcppError>) {
+    pub(crate) fn authorized_response(&mut self, res: Result<AuthorizeResponse, OcppError>) {
         if let Some((connector_id, id_tag)) = self.pending_auth_requests.pop_front() {
             match res {
                 Ok(t) => {

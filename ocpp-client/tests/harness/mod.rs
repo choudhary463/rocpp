@@ -5,3 +5,6 @@ pub mod firmware;
 pub mod harness;
 pub mod secc;
 pub mod ws;
+pub mod stop;
+pub mod hardware;
+pub mod timeout;

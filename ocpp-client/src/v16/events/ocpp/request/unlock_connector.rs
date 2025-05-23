@@ -1,3 +1,4 @@
+use alloc::string::String;
 use ocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -8,11 +9,11 @@ use ocpp_core::{
 
 use crate::v16::{
     interface::{Database, Secc},
-    state_machine::core::ChargePointCore,
+    cp::ChargePointCore,
 };
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn unlock_connector_ocpp(&mut self, unique_id: String, _req: UnlockConnectorRequest) {
+    pub(crate) fn unlock_connector_ocpp(&mut self, unique_id: String, _req: UnlockConnectorRequest) {
         let payload = UnlockConnectorResponse {
             status: UnlockStatus::NotSupported,
         };

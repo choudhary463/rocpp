@@ -1,3 +1,4 @@
+use alloc::{string::{String, ToString}, vec::Vec};
 use ocpp_core::{
     format::{
         error::GenericError,
@@ -9,12 +10,10 @@ use ocpp_core::{
 use serde::Serialize;
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
-    state_machine::core::ChargePointCore,
+    interface::{Database, Secc, TimerId},
+    cp::ChargePointCore,
 };
-
-use super::core::OcppError;
+use super::super::cp::OcppError;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub(crate) enum CallAction {
@@ -29,8 +28,8 @@ pub(crate) enum CallAction {
     FirmwareStatusNotification,
 }
 
-impl std::fmt::Display for CallAction {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl core::fmt::Display for CallAction {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         let s = match self {
             CallAction::BootNotification => "BootNotification",
             CallAction::Heartbeat => "Heartbeat",
@@ -57,7 +56,7 @@ pub(crate) enum OutgoingCallState {
 }
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn on_outgoing_offline(&mut self) {
+    pub(crate) fn on_outgoing_offline(&mut self) {
         self.handle_call_response(Err(OcppError::Other(GenericError::Offline)), false);
         let drained: Vec<_> = self.pending_calls.drain(..).collect();
         for (_, action) in drained {
@@ -65,9 +64,9 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
     }
 
-    pub fn enqueue_call<T: Serialize>(&mut self, action: CallAction, payload: T) {
+    pub(crate) fn enqueue_call<T: Serialize>(&mut self, action: CallAction, payload: T) {
         let call = Call {
-            unique_id: uuid::Uuid::new_v4().to_string(),
+            unique_id: self.get_uuid(),
             action: action.to_string(),
             payload: serde_json::to_value(payload).unwrap(),
         };
@@ -75,7 +74,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         self.process_call();
     }
 
-    pub fn process_call(&mut self) {
+    pub(crate) fn process_call(&mut self) {
         if let OutgoingCallState::Idle = self.outgoing_call_state {
             if let Some((call, action)) = self.pending_calls.pop_front() {
                 self.send_ws_msg(call.encode());
@@ -88,7 +87,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
     }
 
-    pub fn handle_call_response(
+    pub(crate) fn handle_call_response(
         &mut self,
         res: Result<CallResponse<ProtocolError>, OcppError>,
         check_next: bool,
@@ -96,7 +95,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         if let Some(res) = self.match_call_uid(res) {
             self.remove_timeout(TimerId::Call);
             if let OutgoingCallState::WaitingForResponse { action, .. } =
-                std::mem::replace(&mut self.outgoing_call_state, OutgoingCallState::Idle)
+                core::mem::replace(&mut self.outgoing_call_state, OutgoingCallState::Idle)
             {
                 self.dispatch_response(action, res);
                 if check_next {

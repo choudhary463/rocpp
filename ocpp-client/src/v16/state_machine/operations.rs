@@ -1,17 +1,18 @@
+use alloc::string::String;
 use ocpp_core::v16::types::{Reason, RegistrationStatus, ResetType};
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::timeout::TimerId,
+    interface::{Database, Secc, TimerId},
+    cp::ChargePointCore
 };
 
-use super::{call::OutgoingCallState, connector::ConnectorState, core::ChargePointCore};
+use super::{call::OutgoingCallState, connector::ConnectorState};
 
 impl<D: Database, S: Secc> ChargePointCore<D, S> {
-    pub fn call_permission(&self) -> bool {
+    pub(crate) fn call_permission(&self) -> bool {
         self.ws_connected && self.registration_status == RegistrationStatus::Accepted
     }
-    pub fn handle_id_tag_authorized(
+    pub(crate) fn handle_id_tag_authorized(
         &mut self,
         connector_id: usize,
         id_tag: String,

@@ -1,27 +1,13 @@
 use alloc::{collections::{btree_map::BTreeMap, vec_deque::VecDeque}, string::String, vec, vec::Vec};
 use chrono::{DateTime, Utc};
-use ocpp_core::{
-    format::frame::Call,
-    v16::{
-        messages::{
-            boot_notification::BootNotificationRequest,
-            status_notification::StatusNotificationRequest,
-        },
-        protocol_error::ProtocolError,
-        types::{IdTagInfo, RegistrationStatus, ResetType},
-    },
-};
+use ocpp_core::{format::frame::Call, v16::{messages::{boot_notification::BootNotificationRequest, status_notification::StatusNotificationRequest}, protocol_error::ProtocolError, types::{ChargePointErrorCode, IdTagInfo, RegistrationStatus, ResetType}}};
 use rand::{rngs::SmallRng, SeedableRng};
 
-use crate::v16::{
-    cp::ChargePointConfig, interface::{Database, Secc}, services::{database::DatabaseService, secc::SeccService}
-};
+use crate::v16::{services::{database::DatabaseService, secc::SeccService}, state_machine::{actions::CoreActions, auth::CachedEntry, boot::BootState, call::{CallAction, OutgoingCallState}, clock::Instant, config::OcppConfigs, connector::{ConnectorState, StatusNotificationState}, diagnostics::DiagnosticsState, firmware::{FirmwareInstallStatus, FirmwareState}, heartbeat::HeartbeatState, meter::MeterState, transaction::{MeterValueLocal, TransactionEvent, TransactionEventState}}, Database, DiagnosticsResponse, Secc, SeccState, TimerId};
 
-use super::{
-    actions::CoreActions, auth::CachedEntry, boot::BootState, call::{CallAction, OutgoingCallState}, clock::Instant, config::OcppConfigs, connector::{ConnectorState, StatusNotificationState}, diagnostics::DiagnosticsState, firmware::{FirmwareInstallStatus, FirmwareState}, heartbeat::HeartbeatState, meter::MeterState, transaction::{MeterValueLocal, TransactionEvent, TransactionEventState}
-};
+use super::config::ChargePointConfig;
 
-pub type OcppError = ocpp_core::format::error::OcppError<ProtocolError>;
+pub(crate) type OcppError = ocpp_core::format::error::OcppError<ProtocolError>;
 
 pub struct ChargePointCore<D: Database, S: Secc> {
     pub(crate) db: DatabaseService<D>,
@@ -73,7 +59,6 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         secc: SeccService<S>,
         cp_configs: ChargePointConfig
     ) -> Self {
-        db.db_init(cp_configs.default_ocpp_configs, cp_configs.clear_db);
         let db_configs = db.get_all_config();
 
         let configs = OcppConfigs::build(db_configs);
@@ -144,5 +129,45 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             pending_reset: None,
             configs,
         }
+    }
+
+    pub fn init(&mut self) {
+        self.init_helper();
+    }
+    pub fn secc_change_state(&mut self, connector_id: usize, state: SeccState, error_code: Option<ChargePointErrorCode>, info: Option<String>,) -> Vec<CoreActions> {
+        self.secc_change_state_helper(connector_id, state, error_code, info);
+        self.queued_actions.drain(..).collect()
+    }
+    pub fn secc_id_tag(&mut self, connector_id: usize, id_tag: String) -> Vec<CoreActions> {
+        self.secc_id_tag_helper(connector_id, id_tag);
+        self.queued_actions.drain(..).collect()
+    }
+    pub fn ws_connected(&mut self) -> Vec<CoreActions> {
+        self.ws_connected_helper();
+        self.queued_actions.drain(..).collect()
+    }
+    pub fn ws_disconnected(&mut self) -> Vec<CoreActions> {
+        self.ws_disconnected_helper();
+        self.queued_actions.drain(..).collect()
+    }
+    pub fn got_ws_msg(&mut self, msg: String) -> Vec<CoreActions> {
+        self.got_ws_msg_helper(msg);
+        self.queued_actions.drain(..).collect()
+    }
+    pub fn handle_timeout(&mut self, id: TimerId) -> Vec<CoreActions> {
+        self.handle_timeout_helper(id);
+        self.queued_actions.drain(..).collect()
+    }
+    pub fn firmware_download_response(&mut self, res: Option<Vec<u8>>) -> Vec<CoreActions> {
+        self.firmware_download_response_helper(res);
+        self.queued_actions.drain(..).collect()
+    }
+    pub fn firmware_install_response(&mut self, res: bool) -> Vec<CoreActions> {
+        self.firmware_install_response_helper(res);
+        self.queued_actions.drain(..).collect()
+    }
+    pub fn handle_diagnostics_response(&mut self, upload_status: DiagnosticsResponse) -> Vec<CoreActions> {
+        self.handle_diagnostics_response_helper(upload_status);
+        self.queued_actions.drain(..).collect()
     }
 }
