@@ -1,5 +1,6 @@
 use super::super::types::{IdTagInfo, MeterValue, Reason};
 
+use alloc::{string::String, vec::Vec};
 use chrono::{DateTime, Utc};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

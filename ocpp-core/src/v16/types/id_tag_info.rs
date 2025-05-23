@@ -1,3 +1,4 @@
+use alloc::string::String;
 use chrono::{DateTime, Utc};
 
 use super::AuthorizationStatus;

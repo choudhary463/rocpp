@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
 pub struct Call {
     pub unique_id: String,

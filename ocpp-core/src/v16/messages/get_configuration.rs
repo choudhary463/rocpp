@@ -1,3 +1,5 @@
+use alloc::{string::String, vec::Vec};
+
 use super::super::types::KeyValue;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

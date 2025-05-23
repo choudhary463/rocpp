@@ -1,3 +1,5 @@
+use alloc::string::{String, ToString};
+use alloc::format;
 use super::frame::{Call, CallError, CallResult};
 
 #[derive(Debug, Clone)]

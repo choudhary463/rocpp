@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 use super::super::types::ConfigurationStatus;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

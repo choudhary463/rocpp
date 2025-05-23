@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 use super::IdTagInfo;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

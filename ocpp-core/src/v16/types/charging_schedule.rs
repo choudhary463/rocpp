@@ -1,3 +1,4 @@
+use alloc::vec::Vec;
 use chrono::{DateTime, Utc};
 
 use super::{ChargingRateUnitType, ChargingSchedulePeriod};

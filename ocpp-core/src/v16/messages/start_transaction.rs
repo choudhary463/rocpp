@@ -1,5 +1,6 @@
 use super::super::types::IdTagInfo;
 
+use alloc::string::String;
 use chrono::{DateTime, Utc};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

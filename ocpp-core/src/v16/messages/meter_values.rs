@@ -1,3 +1,5 @@
+use alloc::vec::Vec;
+
 use super::super::types::MeterValue;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]

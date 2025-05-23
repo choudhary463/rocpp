@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub struct KeyValue {
     pub key: String,

@@ -1,3 +1,5 @@
+use alloc::string::String;
+
 use super::{value_format::ValueFormat, Location, Measurand, Phase, ReadingContext, UnitOfMeasure};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
