@@ -12,9 +12,9 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
+    drivers::{database::Database, hardware_interface::HardwareInterface},
     state_machine::{config::OcppConfig},
-    cp::ChargePointCore
+    cp::core::ChargePointCore
 };
 
 macro_rules! gen_get_ocpp_match {
@@ -28,7 +28,7 @@ macro_rules! gen_get_ocpp_match {
     };
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn get_configuration_ocpp(&mut self, unique_id: String, req: GetConfigurationRequest) {
         if req.key.as_ref().map(|t| t.len()).unwrap_or(0)
             > self.configs.get_configuration_max_keys.value

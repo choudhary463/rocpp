@@ -7,7 +7,7 @@ use ocpp_core::v16::{
     types::FirmwareStatus,
 };
 
-use crate::v16::{interface::{Database, Secc}, cp::ChargePointCore};
+use crate::v16::{drivers::{database::Database, hardware_interface::HardwareInterface}, cp::core::ChargePointCore};
 
 use super::call::CallAction;
 
@@ -39,7 +39,7 @@ impl FirmwareState {
     }
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn on_firmware_online(&mut self) {
         let status = match self.last_firmware_state {
             FirmwareInstallStatus::InstallationSuccess => FirmwareStatus::Installed,

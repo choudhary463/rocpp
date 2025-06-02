@@ -8,12 +8,10 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc, SeccState, TimerId},
-    state_machine::{connector::ConnectorState},
-    cp::ChargePointCore
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState, timers::TimerId}, state_machine::connector::ConnectorState
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn change_availability_ocpp(&mut self, unique_id: String, req: ChangeAvailabilityRequest) {
         let mut changes = Vec::new();
         let mut pending = false;

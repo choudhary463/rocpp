@@ -3,15 +3,15 @@ use chrono::{DateTime, Utc};
 use ocpp_core::{format::frame::Call, v16::{messages::{boot_notification::BootNotificationRequest, status_notification::StatusNotificationRequest}, protocol_error::ProtocolError, types::{ChargePointErrorCode, IdTagInfo, RegistrationStatus, ResetType}}};
 use rand::{rngs::SmallRng, SeedableRng};
 
-use crate::v16::{services::{database::DatabaseService, secc::SeccService}, state_machine::{actions::CoreActions, auth::CachedEntry, boot::BootState, call::{CallAction, OutgoingCallState}, clock::Instant, config::OcppConfigs, connector::{ConnectorState, StatusNotificationState}, diagnostics::DiagnosticsState, firmware::{FirmwareInstallStatus, FirmwareState}, heartbeat::HeartbeatState, meter::MeterState, transaction::{MeterValueLocal, TransactionEvent, TransactionEventState}}, Database, DiagnosticsResponse, Secc, SeccState, TimerId};
+use crate::v16::{drivers::{database::{ChargePointStorage, Database}, diagnostics::DiagnosticsResponse, hardware_interface::{HardwareBridge, HardwareInterface}, peripheral_input::SeccState, timers::TimerId}, state_machine::{actions::CoreActions, auth::CachedEntry, boot::BootState, call::{CallAction, OutgoingCallState}, clock::Instant, config::OcppConfigs, connector::{ConnectorState, StatusNotificationState}, diagnostics::DiagnosticsState, firmware::{FirmwareInstallStatus, FirmwareState}, heartbeat::HeartbeatState, meter::MeterState, transaction::{MeterValueLocal, TransactionEvent, TransactionEventState}}};
 
 use super::config::ChargePointConfig;
 
 pub(crate) type OcppError = ocpp_core::format::error::OcppError<ProtocolError>;
 
-pub struct ChargePointCore<D: Database, S: Secc> {
-    pub(crate) db: DatabaseService<D>,
-    pub(crate) secc: SeccService<S>,
+pub struct ChargePointCore<D: Database, H: HardwareInterface> {
+    pub(crate) db: ChargePointStorage<D>,
+    pub(crate) hw: HardwareBridge<H>,
     pub(crate) rng: SmallRng,
     pub(crate) cms_url: String,
     pub(crate) boot_info: BootNotificationRequest,
@@ -53,10 +53,10 @@ pub struct ChargePointCore<D: Database, S: Secc> {
     pub(crate) configs: OcppConfigs,
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub fn new(
-        mut db: DatabaseService<D>,
-        secc: SeccService<S>,
+        mut db: ChargePointStorage<D>,
+        hw: HardwareBridge<H>,
         cp_configs: ChargePointConfig
     ) -> Self {
         let db_configs = db.get_all_config();
@@ -85,7 +85,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
 
         Self {
             db,
-            secc,
+            hw,
             rng: SmallRng::seed_from_u64(cp_configs.seed),
             cms_url: cp_configs.cms_url,
             boot_info: cp_configs.boot_info,

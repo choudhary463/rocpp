@@ -14,7 +14,7 @@ use ocpp_core::{
 use rand::{rngs::SmallRng, SeedableRng};
 
 use crate::v16::{
-    cp::ChargePointConfig, interface::{Database, Secc}, services::{database::DatabaseService, secc::SeccService}
+    cp::ChargePointConfig, drivers::{database::Database, hardware_interface::HardwareInterface}, services::{database::DatabaseService, secc::SeccService}
 };
 
 use super::{
@@ -23,7 +23,7 @@ use super::{
 
 pub type OcppError = ocpp_core::format::error::OcppError<ProtocolError>;
 
-pub struct ChargePointCore<D: Database, S: Secc> {
+pub struct ChargePointCore<D: Database, H: HardwareInterface> {
     pub(crate) db: DatabaseService<D>,
     pub(crate) secc: SeccService<S>,
     pub(crate) rng: SmallRng,
@@ -67,7 +67,7 @@ pub struct ChargePointCore<D: Database, S: Secc> {
     pub(crate) configs: OcppConfigs,
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub fn new(
         mut db: DatabaseService<D>,
         secc: SeccService<S>,

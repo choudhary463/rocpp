@@ -1,31 +1,46 @@
-use core::{
-    future::Future,
-    pin::Pin,
-    task::{Context, Poll},
-};
+#[cfg(feature = "async")]
+use {core::{future::Future, pin::Pin, task::{Context, Poll}}, alloc::{boxed::Box, string::String, vec::Vec}};
 
-use alloc::{boxed::Box, string::String, vec::Vec};
+#[cfg(feature = "ftp_transfer")]
+use super::ftp::FtpService;
 
-use crate::v16::interface::Firmware;
+#[cfg(feature = "async")]
+#[async_trait::async_trait]
+pub trait FirmwareDownload: Send + Unpin + 'static {
+    async fn download(&mut self, location: String) -> Option<Vec<u8>>;
+}
 
-pub(crate) enum FirmwareStage<F: Firmware> {
+#[cfg(feature = "async")]
+#[async_trait::async_trait]
+pub trait FirmwareInstall: Send + Unpin + 'static {
+    async fn install(&mut self, firmware_image: Vec<u8>) -> bool;
+}
+
+#[cfg(feature = "async")]
+pub trait Firmware: FirmwareDownload + FirmwareInstall {}
+
+#[cfg(feature = "async")]
+enum FirmwareStage<F: Firmware> {
     Idle(F),
     Downloading(Pin<Box<dyn Future<Output = (F, Option<Vec<u8>>)> + Send>>),
     Installing(Pin<Box<dyn Future<Output = (F, bool)> + Send>>),
     Empty,
 }
 
+#[cfg(feature = "async")]
 #[derive(Debug)]
-pub enum FirmwareResponse {
+pub(crate) enum FirmwareResponse {
     DownloadStatus(Option<Vec<u8>>),
     InstallStatus(bool),
 }
 
-pub(crate) struct FirmwareService<F: Firmware> {
+#[cfg(feature = "async")]
+pub(crate) struct FirmwareManager<F: Firmware> {
     state: FirmwareStage<F>,
 }
 
-impl<F: Firmware> FirmwareService<F> {
+#[cfg(feature = "async")]
+impl<F: Firmware> FirmwareManager<F> {
     pub fn new(fw: F) -> Self {
         Self {
             state: FirmwareStage::Idle(fw),
@@ -78,7 +93,8 @@ impl<F: Firmware> FirmwareService<F> {
     }
 }
 
-impl<F: Firmware> Future for FirmwareService<F> {
+#[cfg(feature = "async")]
+impl<F: Firmware> Future for FirmwareManager<F> {
     type Output = FirmwareResponse;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -100,6 +116,31 @@ impl<F: Firmware> Future for FirmwareService<F> {
             },
             FirmwareStage::Empty => {
                 unreachable!();
+            }
+        }
+    }
+}
+
+#[cfg(feature = "ftp_transfer")]
+pub struct FtpFirmwareDownload {}
+
+#[cfg(feature = "ftp_transfer")]
+impl FtpFirmwareDownload {
+    pub fn new() -> Self {
+        Self {  }
+    }
+}
+
+#[cfg(feature = "ftp_transfer")]
+#[async_trait::async_trait]
+impl FirmwareDownload for FtpFirmwareDownload {
+    async fn download(&mut self, location: String) -> Option<Vec<u8>> {
+        let ftp = FtpService::new(location);
+        match ftp.download().await {
+            Ok(t) => Some(t),
+            Err(e) => {
+                log::error!("upload error {:?}", e);
+                None
             }
         }
     }

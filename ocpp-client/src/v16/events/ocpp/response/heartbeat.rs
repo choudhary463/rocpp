@@ -1,14 +1,14 @@
 use ocpp_core::v16::messages::heart_beat::HeartbeatResponse;
 
 use crate::v16::{
-    interface::{Database, Secc},
+    drivers::{database::Database, hardware_interface::HardwareInterface},
     state_machine::{
         heartbeat::HeartbeatState,
     },
-    cp::{ChargePointCore, OcppError},
+    cp::core::{ChargePointCore, OcppError},
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn heartbeat_response(&mut self, res: Result<HeartbeatResponse, OcppError>) {
         match res {
             Ok(t) => {

@@ -1,38 +1,43 @@
-use std::{future::Future, pin::Pin, task::Poll};
+use ocpp_client::v16::{MeterData, MeterDataType, HardwareInterface};
+use ocpp_core::v16::types::ChargePointStatus;
+use tokio_util::sync::CancellationToken;
 
-use flume::{unbounded, Receiver, Sender};
-use futures::FutureExt;
-use ocpp_client::v16::{Hardware, HardwareActions};
-
-pub struct HardwareService {
-    tx: Sender<HardwareActions>,
-    fut: Pin<Box<dyn Future<Output = (HardwareActions, Receiver<HardwareActions>)> + Send>>
+pub struct MockHardware {
+    hard_reset_toekn: CancellationToken,
 }
 
-impl HardwareService {
-    pub fn new() -> Self {
-        let (tx, rx) = unbounded();
+impl MockHardware {
+    pub fn new(token: CancellationToken) -> Self {
         Self {
-            tx,
-            fut: Box::pin(async move { let res = rx.recv_async().await.unwrap(); (res, rx) })
+            hard_reset_toekn: token,
         }
-    }
-    
-    pub fn get_sender(&self) -> Sender<HardwareActions> {
-        self.tx.clone()
     }
 }
 
-impl Hardware for HardwareService {
-    fn poll_next_action(&mut self, cx: &mut std::task::Context<'_>) -> std::task::Poll<HardwareActions> {
-        match self.fut.poll_unpin(cx) {
-            Poll::Ready((action, rx)) => {
-                self.fut = Box::pin(async move { let res = rx.recv_async().await.unwrap(); (res, rx) });
-                Poll::Ready(action)
-            }
-            Poll::Pending => {
-                Poll::Pending
-            }
-        }
+impl HardwareInterface for MockHardware {
+    fn get_boot_time(&self) -> u128 {
+        uptime_lib::get().unwrap().as_micros()
+    }
+    fn hard_reset(&self) {
+        self.hard_reset_toekn.cancel();
+    }
+    fn update_status(&self, connector_id: usize, status: ChargePointStatus) {
+        log::info!(
+            "connector state for connector: {}, state: {:?}",
+            connector_id,
+            status
+        );
+    }
+    fn get_meter_value(&self, connector_id: usize, kind: &MeterDataType) -> Option<MeterData> {
+        log::info!(
+            "requested meter value for connector: {}, kind: {:?}",
+            connector_id,
+            kind
+        );
+        return Some(MeterData {
+            value: String::from("10"),
+            location: None,
+            unit: None,
+        });
     }
 }

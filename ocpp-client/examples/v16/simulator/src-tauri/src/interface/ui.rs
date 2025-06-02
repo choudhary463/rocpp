@@ -1,5 +1,5 @@
 use flume::{unbounded, Receiver, Sender};
-use ocpp_client::v16::{SeccActions, SeccState};
+use ocpp_client::v16::{PeripheralActions, SeccState};
 use ocpp_core::v16::types::ChargePointStatus;
 use serde_json::{json, Value};
 use tauri::Manager;
@@ -49,14 +49,14 @@ impl UiClient {
 }
 
 pub struct TauriState {
-    pub secc_tx: Sender<SeccActions>,
+    pub secc_tx: Sender<PeripheralActions>,
 }
 
 #[tauri::command]
 pub fn send_id_tag(connector_id: usize, id_tag: String, state: tauri::State<'_, TauriState>) {
     let _ = state
         .secc_tx
-        .send(SeccActions::IdTag(connector_id - 1, id_tag));
+        .send(PeripheralActions::IdTag(connector_id - 1, id_tag));
 }
 
 #[tauri::command]
@@ -74,10 +74,10 @@ pub fn set_connector_state(
 
     let _ = state
         .secc_tx
-        .send(SeccActions::Secc(connector_id - 1, secc_state, None, None));
+        .send(PeripheralActions::State(connector_id - 1, secc_state, None, None));
 }
 
-pub async fn run_ui(secc_tx: Sender<SeccActions>, req_rx: Receiver<UiRequest>) {
+pub async fn run_ui(secc_tx: Sender<PeripheralActions>, req_rx: Receiver<UiRequest>) {
     let (ui_tx, ui_rx) = unbounded();
     tokio::spawn(async move { handle_ui_req(ui_tx, req_rx).await });
     tauri::Builder::default()

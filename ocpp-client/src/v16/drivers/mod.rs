@@ -1,0 +1,10 @@
+pub(crate) mod database;
+pub(crate) mod diagnostics;
+pub(crate) mod firmware;
+pub(crate) mod hardware_interface;
+pub(crate) mod timers;
+pub(crate) mod websocket;
+pub(crate) mod shutdown;
+pub(crate) mod peripheral_input;
+#[cfg(feature = "ftp_transfer")]
+pub(crate) mod ftp;

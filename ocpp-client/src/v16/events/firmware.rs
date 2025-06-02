@@ -2,12 +2,10 @@ use alloc::vec::Vec;
 use ocpp_core::v16::types::{FirmwareStatus, Reason, ResetType};
 
 use crate::v16::{
-    cp::ChargePointCore, interface::{Database, Secc, TimerId}, state_machine::{
-        firmware::{FirmwareInstallStatus, FirmwareState}
-    }
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}, state_machine::firmware::{FirmwareInstallStatus, FirmwareState}
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn firmware_download_response_helper(&mut self, res: Option<Vec<u8>>) {
         match core::mem::replace(&mut self.firmware_state, FirmwareState::Idle) {
             FirmwareState::Downloading(mut t) => match res {

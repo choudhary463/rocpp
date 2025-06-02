@@ -2,10 +2,10 @@ use alloc::string::String;
 use ocpp_core::v16::types::{ChargePointErrorCode, Reason};
 
 use crate::v16::{
-    cp::ChargePointCore, interface::{Database, Secc, SeccState, TimerId}, state_machine::{auth::AuthorizeStatus, connector::ConnectorState}
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState, timers::TimerId}, state_machine::{auth::AuthorizeStatus, connector::ConnectorState}
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub fn secc_id_tag_helper(&mut self, connector_id: usize, id_tag: String) {
         match self.evaluate_id_tag_auth(id_tag, connector_id) {
             AuthorizeStatus::NotAuthorized => {}

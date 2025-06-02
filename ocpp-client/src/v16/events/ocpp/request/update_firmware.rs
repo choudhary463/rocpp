@@ -8,14 +8,10 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc, TimerId},
-    state_machine::{
-        firmware::{FirmwareDownloadInfo, FirmwareState},
-    },
-    cp::ChargePointCore,
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}, state_machine::firmware::{FirmwareDownloadInfo, FirmwareState}
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn update_firmware_ocpp(&mut self, unique_id: String, req: UpdateFirmwareRequest) {
         let payload = UpdateFirmwareResponse {};
         let res = CallResult::new(unique_id, payload);

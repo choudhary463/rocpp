@@ -2,10 +2,7 @@ use alloc::{string::String, vec::Vec};
 use chrono::{DateTime, Utc};
 use ocpp_core::v16::types::ResetType;
 
-use crate::v16::{
-    interface::{Database, Secc, TimerId},
-    cp::ChargePointCore,
-};
+use crate::v16::{cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}};
 
 #[derive(Debug)]
 pub enum CoreActions {
@@ -25,7 +22,7 @@ pub enum CoreActions {
     SoftReset,
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub fn connect(&mut self, cms_url: String) {
         self.queued_actions.push_back(CoreActions::Connect(cms_url));
     }

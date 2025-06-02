@@ -8,7 +8,7 @@ use std::{
 };
 
 use futures::task::AtomicWaker;
-use ocpp_client::v16::WebsocketIo;
+use ocpp_client::v16::WebsocketTransport;
 use ocpp_core::{
     format::{
         frame::{Call, CallError, CallResult},
@@ -56,7 +56,7 @@ impl MockWs {
 }
 
 #[async_trait::async_trait]
-impl WebsocketIo for MockWs {
+impl WebsocketTransport for MockWs {
     async fn connect(&mut self, url: String) {
         log::info!("connecting.......");
         let maybe_notify = { self.inner.notify.lock().unwrap().as_ref().cloned() };

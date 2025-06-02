@@ -1,21 +1,24 @@
-use ocpp_client::v16::{MeterData, MeterDataType, Secc};
+use ocpp_client::v16::{MeterData, MeterDataType, HardwareInterface};
 use ocpp_core::v16::types::{ChargePointStatus, Measurand};
 use tokio_util::sync::CancellationToken;
 
 use super::ui::UiClient;
 
-pub struct SeccService {
+pub struct HardwareService {
     pub ui: UiClient,
     pub stop_token: CancellationToken,
 }
 
-impl SeccService {
+impl HardwareService {
     pub fn new(ui: UiClient, stop_token: CancellationToken) -> Self {
         Self { ui, stop_token }
     }
 }
 
-impl Secc for SeccService {
+impl HardwareInterface for HardwareService {
+    fn get_boot_time(&self) -> u128 {
+        uptime_lib::get().unwrap().as_micros()
+    }
     fn hard_reset(&self) {
         self.stop_token.cancel();
     }

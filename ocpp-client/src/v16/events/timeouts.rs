@@ -4,12 +4,12 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    cp::{ChargePointCore, OcppError}, interface::{Database, Secc, TimerId}, state_machine::{
+    cp::core::{ChargePointCore, OcppError}, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}, state_machine::{
         boot::BootState, call::OutgoingCallState, connector::{ConnectorState, StatusNotificationState}, firmware::{FirmwareDownloadInfo, FirmwareState}, heartbeat::HeartbeatState, meter::MeterDataKind, transaction::TransactionEventState
     }
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub fn handle_timeout_helper(&mut self, id: TimerId) {
         self.remove_timeout(id.clone());
         match id {

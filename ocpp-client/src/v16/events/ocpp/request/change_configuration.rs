@@ -8,10 +8,10 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    services::database::DatabaseService,
+    drivers::{database::Database, hardware_interface::HardwareInterface},
+    drivers::database::ChargePointStorage,
     state_machine::{config::OcppConfig},
-    cp::ChargePointCore
+    cp::core::ChargePointCore
 };
 
 macro_rules! gen_update_ocpp_match {
@@ -25,7 +25,7 @@ macro_rules! gen_update_ocpp_match {
     };
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn change_configuration_ocpp(
         &mut self,
         unique_id: String,
@@ -48,7 +48,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
     }
     fn config_update_helper<T>(
         &mut self,
-        accessor: fn(&mut Self) -> (&mut OcppConfig<T>, &mut DatabaseService<D>),
+        accessor: fn(&mut Self) -> (&mut OcppConfig<T>, &mut ChargePointStorage<D>),
         raw: String,
     ) -> Result<bool, ConfigurationStatus> {
         let (cfg_ref, db) = accessor(self);

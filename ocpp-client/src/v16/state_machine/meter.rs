@@ -3,8 +3,7 @@ use chrono::Timelike;
 use ocpp_core::v16::types::{ReadingContext, SampledValue};
 
 use crate::v16::{
-    interface::{Database, MeterDataType, Secc, TimerId},
-    cp::ChargePointCore
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::{HardwareInterface, MeterDataType}, timers::TimerId}
 };
 
 use super::{
@@ -24,7 +23,7 @@ pub(crate) enum MeterDataKind {
     StopTxnAligned,
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn set_sampled_meter_sleep_state(&mut self, connector_id: usize) {
         self.add_timeout(
             TimerId::MeterSampled(connector_id),
@@ -129,7 +128,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
     ) -> Vec<SampledValue> {
         let mut sampled_value = Vec::new();
         for measurand in self.get_measurands(kind) {
-            if let Some(res) = self.secc.get_meter_value(connector_id, measurand) {
+            if let Some(res) = self.hw.get_meter_value(connector_id, measurand) {
                 sampled_value.push(SampledValue {
                     value: res.value,
                     context: Some(context.clone()),

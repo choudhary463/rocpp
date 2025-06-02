@@ -5,7 +5,6 @@ use ocpp_core::v16::{
 };
 
 use crate::v16::{
-    interface::{Database, SeccState, TableOperation},
     state_machine::{
         auth::{CachedEntry, LocalListChange},
         connector::ConnectorState,
@@ -14,11 +13,35 @@ use crate::v16::{
     },
 };
 
-pub struct DatabaseService<D> {
+use super::peripheral_input::SeccState;
+
+pub enum TableOperation {
+    Insert { key: String, value: String },
+    Delete { key: String },
+}
+
+impl TableOperation {
+    pub fn insert(key: String, value: String) -> Self {
+        TableOperation::Insert { key, value }
+    }
+    pub fn delete(key: String) -> Self {
+        TableOperation::Delete { key }
+    }
+}
+
+pub trait Database: Send + Unpin + 'static {
+    fn init(&mut self);
+    fn transaction(&mut self, table: &str, ops: Vec<TableOperation>);
+    fn get(&mut self, table: &str, key: &str) -> Option<String>;
+    fn get_all(&mut self, table: &str) -> Vec<(String, String)>;
+    fn delete_table(&mut self, table: &str);
+}
+
+pub struct ChargePointStorage<D> {
     db: D,
 }
 
-impl<D: Database> DatabaseService<D> {
+impl<D: Database> ChargePointStorage<D> {
     pub fn new(db: D) -> Self {
         Self { db }
     }
@@ -143,6 +166,7 @@ impl<D: Database> DatabaseService<D> {
         self.db
             .transaction("reservation", vec![TableOperation::insert(key, value)]);
     }
+    #[allow(dead_code)]
     pub(crate) fn db_init(&mut self, mut default_configs: Vec<(String, String)>, clear_db: bool) {
         self.db.init();
         let mut previous_configs = self.db.get_all("previous_configs");

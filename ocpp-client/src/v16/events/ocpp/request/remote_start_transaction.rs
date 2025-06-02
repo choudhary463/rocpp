@@ -10,12 +10,12 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
+    drivers::{database::Database, hardware_interface::HardwareInterface},
     state_machine::{auth::AuthorizeStatus, connector::ConnectorState},
-    cp::ChargePointCore
+    cp::core::ChargePointCore
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     fn get_remote_start_info(
         &mut self,
         connector_id: Option<usize>,

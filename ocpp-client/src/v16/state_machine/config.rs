@@ -4,10 +4,7 @@ use alloc::{boxed::Box, format, string::{String, ToString}, vec::Vec};
 
 use ocpp_core::v16::types::{Measurand, Phase};
 
-use crate::v16::{
-    interface::{Database, MeterDataType},
-    services::database::DatabaseService,
-};
+use crate::v16::drivers::{database::{ChargePointStorage, Database}, hardware_interface::MeterDataType};
 
 pub(crate) struct OcppConfig<T> {
     pub key: String,
@@ -67,7 +64,7 @@ impl<T> OcppConfig<T> {
         self.reboot_required = true;
         self
     }
-    pub fn update<D: Database>(&mut self, value: T, database: &mut DatabaseService<D>) {
+    pub fn update<D: Database>(&mut self, value: T, database: &mut ChargePointStorage<D>) {
         let raw = (self.format_fn)(&value);
         database.db_update_config(self.key.clone(), raw.clone());
         self.raw = raw;
@@ -77,7 +74,7 @@ impl<T> OcppConfig<T> {
         &mut self,
         value: T,
         raw: String,
-        database: &mut DatabaseService<D>,
+        database: &mut ChargePointStorage<D>,
     ) {
         database.db_update_config(self.key.clone(), raw.clone());
         if !self.reboot_required {

@@ -1,11 +1,11 @@
 use std::time::Duration;
 
-use ocpp_client::v16::Firmware;
+use ocpp_client::v16::{Firmware, FirmwareDownload, FirmwareInstall};
 
 pub struct MockFirmware {}
 
 #[async_trait::async_trait]
-impl Firmware for MockFirmware {
+impl FirmwareDownload for MockFirmware {
     async fn download(&mut self, location: String) -> Option<Vec<u8>> {
         log::info!("firmware download location: {}", location);
         if location == format!("download_success:install:success") {
@@ -18,9 +18,15 @@ impl Firmware for MockFirmware {
             return None;
         }
     }
+}
+
+#[async_trait::async_trait]
+impl FirmwareInstall for MockFirmware {
     async fn install(&mut self, artifact: Vec<u8>) -> bool {
         log::info!("firmware installing artifact: {:?}", artifact);
         tokio::time::sleep(Duration::from_secs(5)).await;
         return !artifact.is_empty();
     }
 }
+
+impl Firmware for MockFirmware {}

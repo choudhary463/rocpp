@@ -8,12 +8,12 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
+    drivers::{database::Database, hardware_interface::HardwareInterface},
     state_machine::{auth::LocalListChange},
-    cp::ChargePointCore
+    cp::core::ChargePointCore
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     fn send_local_list_ocpp_helper(&mut self, req: SendLocalListRequest) -> UpdateStatus {
         if !self.configs.local_auth_list_enabled.value {
             return UpdateStatus::NotSupported;

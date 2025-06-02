@@ -8,10 +8,10 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    cp::ChargePointCore, interface::{Database, Secc}, state_machine::connector::ConnectorState
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface}, state_machine::connector::ConnectorState
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn get_connector_with_reservation(&self, reservation_id: i32) -> Option<usize> {
         for connector_id in 0..self.configs.number_of_connectors.value {
             if let ConnectorState::Reserved {

@@ -1,8 +1,5 @@
 pub mod database;
-pub mod diagnostics;
 pub mod firmware;
-pub mod ftp;
 pub mod log;
-pub mod secc;
+pub mod hardware;
 pub mod ui;
-pub mod websocket;

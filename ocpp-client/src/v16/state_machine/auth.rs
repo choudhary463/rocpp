@@ -5,7 +5,7 @@ use ocpp_core::v16::{
     types::{AuthorizationStatus, IdTagInfo},
 };
 
-use crate::v16::{interface::{Database, Secc}, cp::ChargePointCore};
+use crate::v16::{drivers::{database::Database, hardware_interface::HardwareInterface}, cp::core::ChargePointCore};
 
 use super::{call::CallAction, connector::ConnectorState};
 
@@ -43,7 +43,7 @@ pub(crate) enum AuthorizeStatus {
     },
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn send_authorize_request(&mut self, connector_id: usize, id_tag: String) {
         self.pending_auth_requests
             .push_back((connector_id, id_tag.clone()));

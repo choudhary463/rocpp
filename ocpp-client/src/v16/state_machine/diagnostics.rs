@@ -6,8 +6,8 @@ use ocpp_core::v16::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    cp::ChargePointCore
+    drivers::{database::Database, hardware_interface::HardwareInterface},
+    cp::core::ChargePointCore
 };
 
 use super::call::CallAction;
@@ -26,7 +26,7 @@ pub(crate) enum DiagnosticsState {
     Uploading(DiagnosticsUploadInfo),
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn send_diagnostics_status_notification(&mut self, status: DiagnosticsStatus) {
         let payload = DiagnosticsStatusNotificationRequest { status };
         self.enqueue_call(CallAction::DiagnosticsStatusNotification, payload);

@@ -9,7 +9,7 @@ use ocpp_core::v16::{
 };
 use serde::Serialize;
 
-use crate::v16::{interface::{Database, Secc, SeccState}, cp::ChargePointCore};
+use crate::v16::{cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState}};
 
 use super::{
     call::CallAction, clock::Instant, connector::ConnectorState, firmware::FirmwareState
@@ -115,7 +115,7 @@ impl TransactionEvent {
     }
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn pop_event(
         &mut self,
         local_transaction_id: Option<u32>,
@@ -223,7 +223,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         if let Some(date) = self.get_time() {
             TransactionTime::Known(date)
         } else {
-            TransactionTime::Unaligned(Instant::now(&self.secc))
+            TransactionTime::Unaligned(Instant::now(&self.hw))
         }
     }
     pub(crate) fn add_transaction_event(&mut self, mut event: TransactionEvent) {
@@ -288,7 +288,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                 SeccState::Plugged,
             ),
         );
-        let meter_start = self.secc.get_start_stop_value(connector_id);
+        let meter_start = self.hw.get_start_stop_value(connector_id);
         let start_event = StartTransactionEvent {
             local_transaction_id,
             connector_id,
@@ -325,7 +325,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                     }
                 };
                 self.active_local_transactions[connector_id] = None;
-                let meter_stop = self.secc.get_start_stop_value(connector_id);
+                let meter_stop = self.hw.get_start_stop_value(connector_id);
                 let stop_event = StopTransactionEvent {
                     local_transaction_id: *local_transaction_id,
                     id_tag,
@@ -384,7 +384,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
         }
         for local_transaction_id in unfinished_txn {
             if let Some(connector_id) = self.transaction_connector_map.get(&local_transaction_id) {
-                let meter_stop = self.secc.get_start_stop_value(*connector_id);
+                let meter_stop = self.hw.get_start_stop_value(*connector_id);
                 let stop_event = TransactionEvent::Stop(StopTransactionEvent {
                     local_transaction_id,
                     id_tag: None,

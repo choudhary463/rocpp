@@ -8,10 +8,10 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    cp::ChargePointCore, interface::{Database, Secc}
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface}
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub fn ws_connected_helper(&mut self) {
         self.ws_connected = true;
         self.on_boot_connected();

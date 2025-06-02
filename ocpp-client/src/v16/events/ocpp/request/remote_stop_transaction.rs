@@ -10,11 +10,11 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    cp::ChargePointCore,
+    drivers::{database::Database, hardware_interface::HardwareInterface},
+    cp::core::ChargePointCore,
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn remote_stop_transaction_ocpp(
         &mut self,
         unique_id: String,

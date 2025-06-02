@@ -1,8 +1,7 @@
 use ocpp_core::v16::types::RegistrationStatus;
 
 use crate::v16::{
-    interface::{Database, Secc, TimerId},
-    cp::ChargePointCore,
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId},
 };
 
 use super::call::CallAction;
@@ -13,7 +12,7 @@ pub(crate) enum BootState {
     WaitingForResponse,
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn send_boot_notification(&mut self) {
         self.enqueue_call(CallAction::BootNotification, self.boot_info.clone());
         self.boot_state = BootState::WaitingForResponse

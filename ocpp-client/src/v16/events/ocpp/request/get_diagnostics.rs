@@ -8,14 +8,14 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc},
-    cp::ChargePointCore,
+    drivers::{database::Database, hardware_interface::HardwareInterface},
+    cp::core::ChargePointCore,
     state_machine::{
         diagnostics::{DiagnosticsState, DiagnosticsUploadInfo},
     },
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     fn get_diagnostics_file_name(&mut self) -> Option<String> {
         let s = self.get_uuid();
         Some(format!("file_{}.log", &s[..6]))

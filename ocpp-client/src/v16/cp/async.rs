@@ -3,46 +3,46 @@ use core::task::Poll;
 use alloc::vec::Vec;
 use futures::FutureExt;
 
-use crate::v16::{services::{database::DatabaseService, diagnostics::DiagnosticsService, firmware::{FirmwareResponse, FirmwareService}, hardware::HardwareService, secc::SeccService, stop::StopChargePointService, timeout::TimeoutService, websocket::{WebsocketResponse, WebsocketService}}, state_machine::actions::CoreActions, Database, Diagnostics, Firmware, Hardware, HardwareActions, Secc, StopChargePoint, Timeout, WebsocketIo};
+use crate::v16::{drivers::{database::{ChargePointStorage, Database}, diagnostics::{Diagnostics, DiagnosticsManager}, firmware::{Firmware, FirmwareManager, FirmwareResponse}, hardware_interface::{HardwareBridge, HardwareInterface}, peripheral_input::{PeripheralActions, PeripheralDriver, PeripheralInput}, shutdown::{ShutdownDriver, ShutdownSignal}, timers::{TimerDriver, TimerManager}, websocket::{WebsocketClient, WebsocketResponse, WebsocketTransport}}, state_machine::actions::CoreActions};
 
-use super::{config::ChargePointConfig, ChargePointCore};
+use super::{config::ChargePointConfig, core::ChargePointCore};
 
-pub struct ChargePointAsync<DB: Database, WS: WebsocketIo, DI: Diagnostics, FW: Firmware, SE: Secc, TI: Timeout, HW: Hardware, ST: StopChargePoint> {
+pub struct ChargePointAsync<DB: Database, WS: WebsocketTransport, DI: Diagnostics, FW: Firmware, HW: HardwareInterface, TI: TimerManager, PI: PeripheralInput, ST: ShutdownSignal> {
     configs: ChargePointConfig,
-    ws: WebsocketService<WS>,
-    diagnostics: DiagnosticsService<DI>,
-    firmware: FirmwareService<FW>,
-    db: DatabaseService<DB>,
-    secc: SeccService<SE>,
-    timeout: TimeoutService<TI>,
-    hardware: HardwareService<HW>,
-    stop: StopChargePointService<ST>
+    ws: WebsocketClient<WS>,
+    diagnostics: DiagnosticsManager<DI>,
+    firmware: FirmwareManager<FW>,
+    db: ChargePointStorage<DB>,
+    hw: HardwareBridge<HW>,
+    timer: TimerDriver<TI>,
+    peripheral: PeripheralDriver<PI>,
+    shutdown: ShutdownDriver<ST>
 }
 
-impl<DB: Database, WS: WebsocketIo, DI: Diagnostics, FW: Firmware, SE: Secc, TI: Timeout, HW: Hardware, ST: StopChargePoint>
-    ChargePointAsync<DB, WS, DI, FW, SE, TI, HW, ST>
+impl<DB: Database, WS: WebsocketTransport, DI: Diagnostics, FW: Firmware, HW: HardwareInterface, TI: TimerManager, PI: PeripheralInput, ST: ShutdownSignal>
+    ChargePointAsync<DB, WS, DI, FW, HW, TI, PI, ST>
 {
     pub fn new(
         ws: WS,
         diagnostics: DI,
         firmware: FW,
         db: DB,
-        secc: SE,
-        timeout: TI,
-        hardware: HW,
-        stop: ST,
+        hw: HW,
+        timer: TI,
+        peripheral: PI,
+        shutdown: ST,
         configs: ChargePointConfig,
     ) -> Self {
         Self {
             configs,
-            ws: WebsocketService::new(ws),
-            diagnostics: DiagnosticsService::new(diagnostics),
-            firmware: FirmwareService::new(firmware),
-            db: DatabaseService::new(db),
-            secc: SeccService::new(secc),
-            timeout: TimeoutService::new(timeout),
-            hardware: HardwareService::new(hardware),
-            stop: StopChargePointService::new(stop)
+            ws: WebsocketClient::new(ws),
+            diagnostics: DiagnosticsManager::new(diagnostics),
+            firmware: FirmwareManager::new(firmware),
+            db: ChargePointStorage::new(db),
+            hw: HardwareBridge::new(hw),
+            timer: TimerDriver::new(timer),
+            peripheral: PeripheralDriver::new(peripheral),
+            shutdown: ShutdownDriver::new(shutdown)
         }
     }
     async fn run_once(self) -> (Self, bool) {
@@ -51,32 +51,32 @@ impl<DB: Database, WS: WebsocketIo, DI: Diagnostics, FW: Firmware, SE: Secc, TI:
             mut diagnostics,
             mut firmware,
             db,
-            secc,
-            mut timeout,
-            mut hardware,
-            mut stop,
+            hw,
+            mut timer,
+            mut peripheral,
+            mut shutdown,
             mut configs,
         } = self;
         configs.seed = configs.seed.saturating_add(1);
         let mut cp = ChargePointCore::new(
             db,
-            secc,
+            hw,
             configs.clone()
         );
         cp.init();
         let mut soft_reset = false;
         'main: loop {
-            let (actions, stop) = futures::future::poll_fn(|cx| {
-                if let Poll::Ready(_) = stop.poll_unpin(cx) {
+            let (actions, shutdown) = futures::future::poll_fn(|cx| {
+                if let Poll::Ready(_) = shutdown.poll_unpin(cx) {
                     return Poll::Ready((Vec::new(), true));
                 }
-                if let Poll::Ready(event) = hardware.poll_unpin(cx) {
-                    log::info!("got event {:?}", event);
-                    let actions = match event {
-                        HardwareActions::State(connector_id, state, error_code, info) => {
+                if let Poll::Ready(action) = peripheral.poll_unpin(cx) {
+                    log::info!("got action {:?}", action);
+                    let actions = match action {
+                        PeripheralActions::State(connector_id, state, error_code, info) => {
                             cp.secc_change_state(connector_id, state, error_code, info)
                         },
-                        HardwareActions::IdTag(connector_id, id_tag) => {
+                        PeripheralActions::IdTag(connector_id, id_tag) => {
                             cp.secc_id_tag(connector_id, id_tag)
                         }
                     };
@@ -99,7 +99,7 @@ impl<DB: Database, WS: WebsocketIo, DI: Diagnostics, FW: Firmware, SE: Secc, TI:
                     };
                     return Poll::Ready((actions, false));
                 }
-                if let Poll::Ready(id) = timeout.poll_unpin(cx) {
+                if let Poll::Ready(id) = timer.poll_unpin(cx) {
                     log::trace!("id timedout: {:?}", id);
                     let actions = cp.handle_timeout(id);
                     return Poll::Ready((actions, false));
@@ -123,7 +123,7 @@ impl<DB: Database, WS: WebsocketIo, DI: Diagnostics, FW: Firmware, SE: Secc, TI:
                 }
                 Poll::Pending
             }).await;
-            if stop {
+            if shutdown {
                 break;
             }
             for action in actions {
@@ -160,17 +160,17 @@ impl<DB: Database, WS: WebsocketIo, DI: Diagnostics, FW: Firmware, SE: Secc, TI:
                             id,
                             deadline
                         );
-                        timeout.add_or_update(id, deadline);
+                        timer.add_or_update(id, deadline);
                     }
                     CoreActions::RemoveTimeout(id) => {
                         log::trace!("remove timeout, id: {:?}", id);
-                        timeout.remove_timeout(id);
+                        timer.remove_timeout(id);
                     }
                     CoreActions::SoftReset => {
                         log::warn!("soft reset");
                         diagnostics.make_idle().await;
                         firmware.make_idle().await;
-                        timeout.remove_all_timeouts();
+                        timer.remove_all_timeouts();
                         ws.close_connection().await;
                         cp.pending_reset = None;
 
@@ -181,17 +181,17 @@ impl<DB: Database, WS: WebsocketIo, DI: Diagnostics, FW: Firmware, SE: Secc, TI:
                 }
             }
         }
-        let ChargePointCore { db, secc, .. } = cp;
+        let ChargePointCore { db, hw, .. } = cp;
         (Self {
             configs,
             ws,
             diagnostics,
             firmware,
             db,
-            secc,
-            timeout,
-            hardware,
-            stop
+            hw,
+            timer,
+            peripheral,
+            shutdown
         }, soft_reset)
     }
     pub async fn run(mut self) {

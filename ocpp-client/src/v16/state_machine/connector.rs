@@ -5,8 +5,7 @@ use ocpp_core::v16::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc, SeccState, TimerId},
-    cp::ChargePointCore
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState, timers::TimerId}
 };
 
 use super::call::CallAction;
@@ -142,7 +141,7 @@ pub enum StatusNotificationState {
     Stabilizing(ChargePointStatus),
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn send_status_notification(&mut self, connector_id: usize) {
         self.enqueue_call(
             CallAction::StatusNotification,
@@ -159,7 +158,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
                         .map(|f| *f != self.connector_status_notification[connector_id].status)
                         .unwrap_or(true)
                     {
-                        self.secc.update_status(
+                        self.hw.update_status(
                             connector_id,
                             self.connector_status_notification[connector_id]
                                 .status
@@ -208,7 +207,7 @@ impl<D: Database, S: Secc> ChargePointCore<D, S> {
             .get_connector_state(self.firmware_state.ongoing_firmware_update());
         if new_status_notification_state != self.connector_status_notification[connector_id].status
         {
-            self.secc
+            self.hw
                 .update_status(connector_id, new_status_notification_state.clone());
             self.update_status_notification_state(
                 connector_id,

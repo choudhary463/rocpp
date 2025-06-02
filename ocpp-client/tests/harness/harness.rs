@@ -2,21 +2,21 @@ use std::{path::PathBuf, sync::Once};
 
 use flume::Sender;
 use log::LevelFilter;
-use ocpp_client::v16::{ChargePoint, ChargePointConfig, Database, HardwareActions};
+use ocpp_client::v16::{ChargePointAsync, ChargePointConfig, Database, FlumePeripheral, PeripheralActions, TokioShutdown, TokioTimerManager};
 use ocpp_core::v16::messages::boot_notification::BootNotificationRequest;
 use tokio_util::sync::CancellationToken;
 
 use crate::harness::event::{Event, SeccEvents};
 
 use super::{
-    database::{FileDatabase, MockDatabase}, diagnostics::MockDiagnostics, event::{event_bus, EventRx}, firmware::MockFirmware, hardware::HardwareService, secc::MockSecc, stop::StopService, timeout::TimeoutService, ws::{MockWs, MockWsHandle}
+    database::{FileDatabase, MockDatabase}, diagnostics::MockDiagnostics, event::{event_bus, EventRx}, firmware::MockFirmware, hardware::MockHardware, ws::{MockWs, MockWsHandle}
 };
 
 #[derive(Debug)]
 pub struct CpHarness {
     pub ws_handle: MockWsHandle,
     pub bus_rx: EventRx,
-    pub secc_tx: Sender<HardwareActions>,
+    pub peripheral_tx: Sender<PeripheralActions>,
     pub stop_token: CancellationToken,
 }
 
@@ -112,10 +112,10 @@ impl CpHarness {
         let (ws, ws_handle) = MockWs::new(tx.clone());
         let diagnostics = MockDiagnostics {};
         let firmware = MockFirmware {};
-        let stop = StopService::new();
-        let hardware = HardwareService::new();
-        let timeout = TimeoutService::new();
-        let secc = MockSecc::new(stop.get_token());
+        let shutdown = TokioShutdown::new();
+        let peripheral = FlumePeripheral::new();
+        let timer = TokioTimerManager::new();
+        let hw = MockHardware::new(shutdown.get_token());
         let mut default_ocpp_configs = default_ocpp_configs();
         for (key, value) in override_defualt_configs {
             if let Some(config) = default_ocpp_configs.iter_mut().find(|x| x.0 == key) {
@@ -133,18 +133,18 @@ impl CpHarness {
             clear_db,
             seed: rand::random()
         };
-        let secc_tx = hardware.get_sender();
-        let stop_token = stop.get_token();
-        let stop_token_clone = stop.get_token();
-        let cp = ChargePoint::new(
+        let peripheral_tx = peripheral.get_sender();
+        let stop_token = shutdown.get_token();
+        let stop_token_clone = shutdown.get_token();
+        let cp = ChargePointAsync::new(
             ws,
             diagnostics,
             firmware,
             db,
-            secc,
-            timeout,
-            hardware,
-            stop,
+            hw,
+            timer,
+            peripheral,
+            shutdown,
             configs
         );
         tokio::spawn(async move {
@@ -162,7 +162,7 @@ impl CpHarness {
         Self {
             ws_handle,
             bus_rx: rx,
-            secc_tx,
+            peripheral_tx,
             stop_token,
         }
     }

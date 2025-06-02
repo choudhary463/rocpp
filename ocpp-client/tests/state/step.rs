@@ -1,4 +1,4 @@
-use ocpp_client::v16::{HardwareActions, SeccState};
+use ocpp_client::v16::{PeripheralActions, SeccState};
 use serde::Serialize;
 use std::{path::PathBuf, time::Duration};
 
@@ -227,9 +227,9 @@ impl TestChain {
     }
     pub fn plug(self, connector_id: usize) -> Self {
         self.operation(move |t| {
-            log::info!("Sent hardware action! {:?}", t.secc_tx);
-            t.secc_tx
-                .send(HardwareActions::State(
+            log::info!("Sent hardware action! {:?}", t.peripheral_tx);
+            t.peripheral_tx
+                .send(PeripheralActions::State(
                     connector_id - 1,
                     SeccState::Plugged,
                     None,
@@ -240,8 +240,8 @@ impl TestChain {
     }
     pub fn unplug(self, connector_id: usize) -> Self {
         self.operation(move |t| {
-            t.secc_tx
-                .send(HardwareActions::State(
+            t.peripheral_tx
+                .send(PeripheralActions::State(
                     connector_id - 1,
                     SeccState::Unplugged,
                     None,
@@ -252,8 +252,8 @@ impl TestChain {
     }
     pub fn faulty(self, connector_id: usize) -> Self {
         self.operation(move |t| {
-            t.secc_tx
-                .send(HardwareActions::State(
+            t.peripheral_tx
+                .send(PeripheralActions::State(
                     connector_id - 1,
                     SeccState::Faulty,
                     None,
@@ -264,8 +264,8 @@ impl TestChain {
     }
     pub fn present_id_tag(self, connector_id: usize, id_tag: String) -> Self {
         self.operation(move |t| {
-            t.secc_tx
-                .send(HardwareActions::IdTag(connector_id - 1, id_tag))
+            t.peripheral_tx
+                .send(PeripheralActions::IdTag(connector_id - 1, id_tag))
                 .unwrap();
         })
     }

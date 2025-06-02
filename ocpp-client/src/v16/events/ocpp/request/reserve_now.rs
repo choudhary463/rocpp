@@ -8,12 +8,10 @@ use ocpp_core::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc, SeccState, TimerId},
-    state_machine::{connector::ConnectorState},
-    cp::ChargePointCore
+    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState, timers::TimerId}, state_machine::connector::ConnectorState
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn reserve_now_ocpp(&mut self, unique_id: String, req: ReserveNowRequest) {
         let mut send_status = None;
         let connector_id = req.connector_id;

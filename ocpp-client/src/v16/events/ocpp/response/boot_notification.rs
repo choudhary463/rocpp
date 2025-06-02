@@ -3,12 +3,10 @@ use ocpp_core::v16::{
 };
 
 use crate::v16::{
-    interface::{Database, Secc, TimerId},
-    state_machine::boot::BootState,
-    cp::{ChargePointCore, OcppError}
+    cp::core::{ChargePointCore, OcppError}, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}, state_machine::boot::BootState
 };
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn boot_notification_response(&mut self, res: Result<BootNotificationResponse, OcppError>) {
         match &self.boot_state {
             BootState::WaitingForResponse => {

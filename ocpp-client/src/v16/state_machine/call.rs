@@ -10,10 +10,8 @@ use ocpp_core::{
 use serde::Serialize;
 
 use crate::v16::{
-    interface::{Database, Secc, TimerId},
-    cp::ChargePointCore,
+    cp::core::{ChargePointCore, OcppError}, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId},
 };
-use super::super::cp::OcppError;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub(crate) enum CallAction {
@@ -55,7 +53,7 @@ pub(crate) enum OutgoingCallState {
     },
 }
 
-impl<D: Database, S: Secc> ChargePointCore<D, S> {
+impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
     pub(crate) fn on_outgoing_offline(&mut self) {
         self.handle_call_response(Err(OcppError::Other(GenericError::Offline)), false);
         let drained: Vec<_> = self.pending_calls.drain(..).collect();
