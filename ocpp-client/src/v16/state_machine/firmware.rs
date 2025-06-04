@@ -35,7 +35,10 @@ pub(crate) enum FirmwareInstallStatus {
 
 impl FirmwareState {
     pub fn ongoing_firmware_update(&self) -> bool {
-        matches!(self, FirmwareState::WaitingForTransactionToFinish | FirmwareState::Installing)
+        matches!(
+            self,
+            FirmwareState::WaitingForTransactionToFinish | FirmwareState::Installing
+        )
     }
 }
 
@@ -48,15 +51,19 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             _ => return,
         };
         self.send_firmware_status_notification(status).await;
-        self.interface.db_change_firmware_state(FirmwareInstallStatus::NA).await;
+        self.interface
+            .db_change_firmware_state(FirmwareInstallStatus::NA)
+            .await;
     }
     pub(crate) async fn send_firmware_status_notification(&mut self, status: FirmwareStatus) {
         let payload = FirmwareStatusNotificationRequest { status };
-        self.enqueue_call(CallAction::FirmwareStatusNotification, payload).await;
+        self.enqueue_call(CallAction::FirmwareStatusNotification, payload)
+            .await;
     }
     pub(crate) async fn try_firmware_download(&mut self, info: FirmwareDownloadInfo) {
         if info.retry_left == 0 {
-            self.send_firmware_status_notification(FirmwareStatus::DownloadFailed).await;
+            self.send_firmware_status_notification(FirmwareStatus::DownloadFailed)
+                .await;
             self.firmware_state = FirmwareState::Idle;
         } else {
             self.download_firmware(info.location.clone()).await;
@@ -65,7 +72,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
     }
     pub(crate) async fn try_firmware_install(&mut self) {
         self.firmware_state = FirmwareState::Installing;
-        self.send_firmware_status_notification(FirmwareStatus::Installing).await;
+        self.send_firmware_status_notification(FirmwareStatus::Installing)
+            .await;
         self.install_firmware().await;
     }
     pub(crate) async fn trigger_firmware_status_notification(&mut self) {

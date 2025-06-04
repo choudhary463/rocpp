@@ -1,6 +1,9 @@
 use alloc::string::String;
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}};
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, TimerId},
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub async fn connect(&mut self, cms_url: String) {
@@ -13,13 +16,12 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.interface.interface.ws_send(msg).await;
     }
 
-    pub async fn start_diagnostics_upload(
-        &mut self,
-        location: String,
-        timeout: u64
-    ) {
+    pub async fn start_diagnostics_upload(&mut self, location: String, timeout: u64) {
         log::debug!("start upload, location: {} ,timeout: {}", location, timeout);
-        self.interface.interface.diagnostics_upload(location, timeout).await;
+        self.interface
+            .interface
+            .diagnostics_upload(location, timeout)
+            .await;
     }
 
     pub async fn download_firmware(&mut self, location: String) {
@@ -38,7 +40,10 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             timer_id,
             timeout_secs
         );
-        self.interface.interface.add_or_update_timeout(timer_id, timeout_secs).await;
+        self.interface
+            .interface
+            .add_or_update_timeout(timer_id, timeout_secs)
+            .await;
     }
 
     pub async fn remove_timeout(&mut self, timer_id: TimerId) {

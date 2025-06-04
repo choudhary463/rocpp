@@ -2,11 +2,12 @@ use alloc::{vec, vec::Vec};
 use chrono::Timelike;
 use rocpp_core::v16::types::{ReadingContext, SampledValue};
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, MeterDataType, TimerId}};
-
-use super::{
-    transaction::{MeterValueLocal, MeterValuesEvent, TransactionEvent},
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, MeterDataType, TimerId},
 };
+
+use super::transaction::{MeterValueLocal, MeterValuesEvent, TransactionEvent};
 
 #[derive(Clone)]
 pub(crate) enum MeterState {
@@ -26,7 +27,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.add_timeout(
             TimerId::MeterSampled(connector_id),
             self.configs.meter_value_sample_interval.value,
-        ).await;
+        )
+        .await;
         self.sampled_meter_state[connector_id] = MeterState::Sleep;
     }
     pub(crate) async fn set_aligned_meter_sleep_state(&mut self) {
@@ -56,7 +58,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
     }
     pub(crate) async fn stop_meter_data(&mut self, connector_id: usize) {
         if let MeterState::Sleep = &self.sampled_meter_state[connector_id] {
-            self.remove_timeout(TimerId::MeterSampled(connector_id)).await;
+            self.remove_timeout(TimerId::MeterSampled(connector_id))
+                .await;
         }
     }
     pub(crate) async fn add_meter_event(
@@ -77,7 +80,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 local_transaction_id,
                 meter_value: vec![meter_value_local],
             };
-            self.add_transaction_event(TransactionEvent::Meter(meter_event)).await;
+            self.add_transaction_event(TransactionEvent::Meter(meter_event))
+                .await;
         }
     }
     pub(crate) async fn add_stop_transaction_sampled_data(
@@ -93,7 +97,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 timestamp: self.get_transaction_time().await,
                 sampled_value,
             };
-            self.add_stop_transaction_meter_value(local_transaction_id, values).await;
+            self.add_stop_transaction_meter_value(local_transaction_id, values)
+                .await;
         }
     }
     pub(crate) async fn trigger_meter_values(&mut self, connector_id: usize) {
@@ -107,7 +112,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 None,
                 MeterDataKind::MeterValuesSampled,
                 ReadingContext::Trigger,
-            ).await;
+            )
+            .await;
         }
     }
     async fn get_sampled_data(
@@ -124,7 +130,12 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         };
         let mut sampled_value = Vec::new();
         for measurand in measurands {
-            if let Some(res) = self.interface.interface.get_meter_value(connector_id, measurand).await {
+            if let Some(res) = self
+                .interface
+                .interface
+                .get_meter_value(connector_id, measurand)
+                .await
+            {
                 sampled_value.push(SampledValue {
                     value: res.value,
                     context: Some(context.clone()),

@@ -9,9 +9,12 @@ use rocpp_core::{
 
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub(crate) async fn data_transfer_ocpp(&mut self, unique_id: String, _req: DataTransferRequest) {
+    pub(crate) async fn data_transfer_ocpp(
+        &mut self,
+        unique_id: String,
+        _req: DataTransferRequest,
+    ) {
         let payload = DataTransferResponse {
             status: DataTransferStatus::Rejected,
             data: None,

@@ -2,14 +2,22 @@ use std::{path::PathBuf, sync::Once};
 
 use flume::Sender;
 use log::LevelFilter;
-use rocpp_client::v16::{ChargePoint, ChargePointConfig, ChargePointInterfaceFacade, HardwareEvent, KeyValueStore};
+use rocpp_client::v16::{
+    ChargePoint, ChargePointConfig, ChargePointInterfaceFacade, HardwareEvent, KeyValueStore,
+};
 use rocpp_core::v16::messages::boot_notification::BootNotificationRequest;
 use tokio_util::sync::CancellationToken;
 
 use crate::harness::event::{Event, SeccEvents};
 
 use super::{
-    database::{FileDatabase, MockDatabase}, diagnostics::MockDiagnostics, event::{event_bus, EventRx}, firmware::MockFirmware, hardware::MockHardware, timers::TokioTimerServie, ws::{MockWs, MockWsHandle}
+    database::{FileDatabase, MockDatabase},
+    diagnostics::MockDiagnostics,
+    event::{event_bus, EventRx},
+    firmware::MockFirmware,
+    hardware::MockHardware,
+    timers::TokioTimerServie,
+    ws::{MockWs, MockWsHandle},
 };
 
 #[derive(Debug)]
@@ -125,12 +133,16 @@ impl CpHarness {
             boot_info: get_boot_info(),
             default_ocpp_configs,
             clear_db,
-            seed: rand::random()
+            seed: rand::random(),
         };
-        let interface = ChargePointInterfaceFacade::new(db, diagnostics, firmware, timer, hardware, ws);
+        let interface =
+            ChargePointInterfaceFacade::new(db, diagnostics, firmware, timer, hardware, ws);
         tokio::task::spawn_local(async move {
             let res = tokio::task::spawn_local(ChargePoint::run(interface, configs)).await;
-            let event = res.is_ok().then(|| SeccEvents::HardReset).unwrap_or(SeccEvents::Crashed);
+            let event = res
+                .is_ok()
+                .then(|| SeccEvents::HardReset)
+                .unwrap_or(SeccEvents::Crashed);
             tx.push(Event::Secc(event));
         });
         Self {

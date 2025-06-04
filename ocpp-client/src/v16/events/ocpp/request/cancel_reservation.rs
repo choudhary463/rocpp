@@ -7,7 +7,9 @@ use rocpp_core::{
     },
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface, state_machine::connector::ConnectorState};
+use crate::v16::{
+    cp::ChargePoint, interfaces::ChargePointInterface, state_machine::connector::ConnectorState,
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) fn get_connector_with_reservation(&self, reservation_id: i32) -> Option<usize> {
@@ -15,7 +17,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             if let ConnectorState::Reserved {
                 reservation_id: res_id,
                 ..
-                } = &self.connector_state[connector_id] {
+            } = &self.connector_state[connector_id]
+            {
                 if *res_id == reservation_id {
                     return Some(connector_id);
                 }
@@ -23,7 +26,11 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         }
         None
     }
-    pub(crate) async fn cancel_reservation_ocpp(&mut self, unique_id: String, req: CancelReservationRequest) {
+    pub(crate) async fn cancel_reservation_ocpp(
+        &mut self,
+        unique_id: String,
+        req: CancelReservationRequest,
+    ) {
         let mut new_status = None;
         let status =
             if let Some(connector_id) = self.get_connector_with_reservation(req.reservation_id) {
@@ -39,7 +46,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         unreachable!();
                     }
                 }
-                self.remove_reservation(connector_id, req.reservation_id).await;
+                self.remove_reservation(connector_id, req.reservation_id)
+                    .await;
                 CancelReservationStatus::Accepted
             } else {
                 CancelReservationStatus::Rejected

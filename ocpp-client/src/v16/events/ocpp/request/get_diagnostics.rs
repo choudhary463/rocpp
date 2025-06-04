@@ -7,27 +7,37 @@ use rocpp_core::{
     },
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface, state_machine::diagnostics::{DiagnosticsState, DiagnosticsUploadInfo}};
-
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::ChargePointInterface,
+    state_machine::diagnostics::{DiagnosticsState, DiagnosticsUploadInfo},
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub(crate) async fn get_diagnostics_ocpp(&mut self, unique_id: String, req: GetDiagnosticsRequest) {
+    pub(crate) async fn get_diagnostics_ocpp(
+        &mut self,
+        unique_id: String,
+        req: GetDiagnosticsRequest,
+    ) {
         let (file_name, new_upload) = match &self.diagnostics_state {
             DiagnosticsState::Idle => {
-                match self.interface.interface.get_file_name(req.start_time, req.stop_time).await {
-                    Some(t) =>  {
+                match self
+                    .interface
+                    .interface
+                    .get_file_name(req.start_time, req.stop_time)
+                    .await
+                {
+                    Some(t) => {
                         let retry_left = req.retries.map(|t| t + 1).unwrap_or(1);
                         let retry_interval = req.retry_interval.unwrap_or(0);
                         let new_upload = DiagnosticsUploadInfo {
                             retry_left,
                             retry_interval,
-                            location: req.location
+                            location: req.location,
                         };
                         (Some(t), Some(new_upload))
-                    },
-                    None => {
-                        (None, None)
                     }
+                    None => (None, None),
                 }
             }
             DiagnosticsState::Uploading(_) => (None, None),
@@ -39,7 +49,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.send_ws_msg(res.encode()).await;
 
         if let Some(upload) = new_upload {
-            self.send_diagnostics_status_notification(DiagnosticsStatus::Uploading).await;
+            self.send_diagnostics_status_notification(DiagnosticsStatus::Uploading)
+                .await;
             self.diagnostics_state = DiagnosticsState::Uploading(upload);
             self.try_diagnostrics_upload().await;
         }

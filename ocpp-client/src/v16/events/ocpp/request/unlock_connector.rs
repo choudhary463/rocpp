@@ -9,9 +9,12 @@ use rocpp_core::{
 
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub(crate) async fn unlock_connector_ocpp(&mut self, unique_id: String, _req: UnlockConnectorRequest) {
+    pub(crate) async fn unlock_connector_ocpp(
+        &mut self,
+        unique_id: String,
+        _req: UnlockConnectorRequest,
+    ) {
         let payload = UnlockConnectorResponse {
             status: UnlockStatus::NotSupported,
         };

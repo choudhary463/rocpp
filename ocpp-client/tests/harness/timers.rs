@@ -1,5 +1,12 @@
-use core::{future::Future, pin::Pin, task::{Context, Poll}};
-use std::{collections::{BTreeMap, HashMap}, time::Instant};
+use core::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+};
+use std::{
+    collections::{BTreeMap, HashMap},
+    time::Instant,
+};
 
 use rocpp_client::v16::{TimeoutScheduler, TimerId};
 use tokio::time::Sleep;

@@ -2,7 +2,10 @@ use core::time::Duration;
 
 use chrono::{DateTime, Utc};
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointBackend, ChargePointInterface}};
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointBackend, ChargePointInterface},
+};
 
 #[derive(Clone, Copy)]
 pub(crate) struct Instant(u64);
@@ -28,8 +31,9 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         })
     }
     pub(crate) fn get_time_since(&self, t: Instant) -> Option<DateTime<Utc>> {
-        self.base_time
-            .map(|(base_dt, base_instant)| base_dt + Duration::from_micros(t.duration_since(base_instant).0 as u64))
+        self.base_time.map(|(base_dt, base_instant)| {
+            base_dt + Duration::from_micros(t.duration_since(base_instant).0 as u64)
+        })
     }
     pub(crate) async fn set_time(&mut self, dt: DateTime<Utc>) {
         let was_uninitialized = self.base_time.is_none();

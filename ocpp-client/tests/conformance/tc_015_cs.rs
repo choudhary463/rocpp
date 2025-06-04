@@ -1,12 +1,17 @@
 use rocpp_core::v16::{
     messages::{
-        reset::{ResetRequest, ResetResponse}, status_notification::{StatusNotificationRequest, StatusNotificationResponse}, stop_transaction::{StopTransactionRequest, StopTransactionResponse}
+        reset::{ResetRequest, ResetResponse},
+        status_notification::{StatusNotificationRequest, StatusNotificationResponse},
+        stop_transaction::{StopTransactionRequest, StopTransactionResponse},
     },
     types::{ChargePointStatus, Reason, ResetStatus, ResetType},
 };
 
 use crate::{
-    state::{reusable_states::{BootState, ChargingState, ReusableState}, step::TestChain},
+    state::{
+        reusable_states::{BootState, ChargingState, ReusableState},
+        step::TestChain,
+    },
     test_chain,
 };
 

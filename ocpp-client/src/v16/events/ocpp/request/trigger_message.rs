@@ -9,9 +9,12 @@ use rocpp_core::{
 
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub(crate) async fn trigger_message_ocpp(&mut self, unique_id: String, req: TriggerMessageRequest) {
+    pub(crate) async fn trigger_message_ocpp(
+        &mut self,
+        unique_id: String,
+        req: TriggerMessageRequest,
+    ) {
         let valid_connector_id = req
             .connector_id
             .map(|f| f <= self.configs.number_of_connectors.value)

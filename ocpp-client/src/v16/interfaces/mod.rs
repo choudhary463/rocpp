@@ -1,7 +1,7 @@
-mod interface;
 mod backend;
 mod facade;
+mod interface;
 
-pub use interface::*;
-pub use facade::*;
 pub(crate) use backend::*;
+pub use facade::*;
+pub use interface::*;

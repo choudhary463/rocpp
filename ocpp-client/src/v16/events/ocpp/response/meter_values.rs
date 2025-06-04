@@ -1,10 +1,16 @@
 use rocpp_core::v16::messages::meter_values::MeterValuesResponse;
 
-use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::{ChargePointInterface, TimerId}, state_machine::transaction::{TransactionEvent, TransactionEventState}};
-
+use crate::v16::{
+    cp::{ChargePoint, OcppError},
+    interfaces::{ChargePointInterface, TimerId},
+    state_machine::transaction::{TransactionEvent, TransactionEventState},
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub(crate) async fn meter_values_response(&mut self, res: Result<MeterValuesResponse, OcppError>) {
+    pub(crate) async fn meter_values_response(
+        &mut self,
+        res: Result<MeterValuesResponse, OcppError>,
+    ) {
         let local_transaction_id = match &self.transacion_current_event {
             Some(TransactionEvent::Meter(t)) => t.local_transaction_id,
             _ => {
@@ -27,7 +33,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         TimerId::Transaction,
                         self.configs.transaction_message_retry_interval.value
                             * self.transaction_event_retries,
-                    ).await;
+                    )
+                    .await;
                     self.transaction_event_state = TransactionEventState::Sleeping;
                 }
             }

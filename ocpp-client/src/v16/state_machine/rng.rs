@@ -1,9 +1,8 @@
 use alloc::string::String;
-use rand::TryRngCore;
 use core::fmt::Write;
+use rand::TryRngCore;
 
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
-
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) fn get_uuid(&mut self) -> String {

@@ -2,7 +2,9 @@ use alloc::{string::String, vec::Vec};
 use core::task::{Context, Poll};
 
 use chrono::{DateTime, Utc};
-use rocpp_core::v16::types::{ChargePointErrorCode, ChargePointStatus, Location, Measurand, Phase, UnitOfMeasure};
+use rocpp_core::v16::types::{
+    ChargePointErrorCode, ChargePointStatus, Location, Measurand, Phase, UnitOfMeasure,
+};
 
 #[allow(async_fn_in_trait)]
 pub trait KeyValueStore {
@@ -21,12 +23,16 @@ pub trait KeyValueStore {
 pub enum DiagnosticsResponse {
     Timeout,
     Success,
-    Failed
+    Failed,
 }
 
 #[allow(async_fn_in_trait)]
 pub trait Diagnostics {
-    async fn get_file_name(&mut self, start_time: Option<DateTime<Utc>>, stop_time: Option<DateTime<Utc>>) -> Option<String>;
+    async fn get_file_name(
+        &mut self,
+        start_time: Option<DateTime<Utc>>,
+        stop_time: Option<DateTime<Utc>>,
+    ) -> Option<String>;
     async fn diagnostics_upload(&mut self, location: String, timeout: u64);
     fn poll_diagnostics_upload(&mut self, cx: &mut Context<'_>) -> Poll<DiagnosticsResponse>;
 }
@@ -65,7 +71,6 @@ pub trait TimeoutScheduler {
     fn poll_timeout(&mut self, cx: &mut Context<'_>) -> Poll<TimerId>;
 }
 
-
 // hardware
 #[derive(Debug, Clone, PartialEq)]
 pub struct MeterDataType {
@@ -102,7 +107,11 @@ pub trait Hardware {
     async fn get_boot_time(&self) -> u64;
     async fn hard_reset(&mut self);
     async fn update_status(&mut self, connector_id: usize, status: ChargePointStatus);
-    async fn get_meter_value(&mut self, connector_id: usize, kind: &MeterDataType) -> Option<MeterData>;
+    async fn get_meter_value(
+        &mut self,
+        connector_id: usize,
+        kind: &MeterDataType,
+    ) -> Option<MeterData>;
     fn poll_hardware_events(&mut self, cx: &mut Context<'_>) -> Poll<HardwareEvent>;
     fn poll_reset(&mut self, cx: &mut Context<'_>) -> Poll<()>;
 }
@@ -113,7 +122,7 @@ pub trait Hardware {
 pub enum WsEvent {
     Connected,
     Disconnected,
-    Msg(String)
+    Msg(String),
 }
 
 #[allow(async_fn_in_trait)]
@@ -126,7 +135,10 @@ pub trait Websocket {
 
 // main
 
-pub trait ChargePointInterface: KeyValueStore + Diagnostics + Firmware + TimeoutScheduler + Hardware + Websocket {}
+pub trait ChargePointInterface:
+    KeyValueStore + Diagnostics + Firmware + TimeoutScheduler + Hardware + Websocket
+{
+}
 
 #[derive(Debug)]
 pub enum ChargePointEvent {
@@ -136,5 +148,5 @@ pub enum ChargePointEvent {
     Timeout(TimerId),
     FirmwareDownload(bool),
     FirmwareInstall(bool),
-    Diagnostics(DiagnosticsResponse)
+    Diagnostics(DiagnosticsResponse),
 }

@@ -30,11 +30,11 @@ struct Inner {
     is_server_up: AtomicBool,
     pending_conn: Mutex<Option<String>>,
     connected_res: Mutex<Option<()>>,
-    disconnect_res: Mutex<Option<()>>
+    disconnect_res: Mutex<Option<()>>,
 }
 
 pub struct MockWs {
-    inner: Arc<Inner>
+    inner: Arc<Inner>,
 }
 
 impl MockWs {
@@ -49,7 +49,7 @@ impl MockWs {
             is_server_up: AtomicBool::new(true),
             pending_conn: Mutex::new(None),
             connected_res: Mutex::new(None),
-            disconnect_res: Mutex::new(None)
+            disconnect_res: Mutex::new(None),
         });
         (
             Self {
@@ -163,8 +163,8 @@ impl MockWsHandle {
         self.inner.is_server_up.store(true, Ordering::Release);
         if let Some(url) = self.inner.pending_conn.lock().unwrap().take() {
             self.inner
-            .event_tx
-            .push(Event::Connection(ConnectionEvents::Connected(url)));
+                .event_tx
+                .push(Event::Connection(ConnectionEvents::Connected(url)));
             self.inner.is_connected.store(true, Ordering::Release);
             self.inner.connected_res.lock().unwrap().replace(());
             self.inner.waker.wake();

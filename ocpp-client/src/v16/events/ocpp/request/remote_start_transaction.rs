@@ -9,8 +9,11 @@ use rocpp_core::{
     },
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface, state_machine::{auth::AuthorizeStatus, connector::ConnectorState}};
-
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::ChargePointInterface,
+    state_machine::{auth::AuthorizeStatus, connector::ConnectorState},
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     fn get_remote_start_info(
@@ -25,7 +28,9 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             Some(connector_id) => (connector_id - 1)..(connector_id),
             None => 0..self.configs.number_of_connectors.value,
         } {
-            if let ConnectorState::Reserved { id_tag: tag, .. } = &self.connector_state[connector_id] {
+            if let ConnectorState::Reserved { id_tag: tag, .. } =
+                &self.connector_state[connector_id]
+            {
                 if tag == id_tag {
                     return Some(connector_id);
                 }
@@ -81,7 +86,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 id_tag,
                 parent_id_tag,
             } => {
-                self.handle_id_tag_authorized(connector_id, id_tag, parent_id_tag).await;
+                self.handle_id_tag_authorized(connector_id, id_tag, parent_id_tag)
+                    .await;
             }
             AuthorizeStatus::SendAuthorize {
                 connector_id,

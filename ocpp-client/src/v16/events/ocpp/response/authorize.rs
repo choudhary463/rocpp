@@ -1,7 +1,9 @@
 use rocpp_core::v16::messages::authorize::AuthorizeResponse;
 
-use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::ChargePointInterface};
-
+use crate::v16::{
+    cp::{ChargePoint, OcppError},
+    interfaces::ChargePointInterface,
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn authorized_response(&mut self, res: Result<AuthorizeResponse, OcppError>) {
@@ -13,7 +15,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             connector_id,
                             id_tag.clone(),
                             t.id_tag_info.parent_id_tag.clone(),
-                        ).await;
+                        )
+                        .await;
                     }
                     self.update_cache(id_tag, t.id_tag_info).await;
                 }

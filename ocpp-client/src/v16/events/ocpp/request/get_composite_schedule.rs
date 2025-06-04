@@ -5,13 +5,13 @@ use rocpp_core::v16::{
 
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn get_composite_schedule_ocpp(
         &mut self,
         unique_id: String,
         _req: GetCompositeScheduleRequest,
     ) {
-        self.send_error(unique_id, ProtocolError::NotImplemented).await;
+        self.send_error(unique_id, ProtocolError::NotImplemented)
+            .await;
     }
 }

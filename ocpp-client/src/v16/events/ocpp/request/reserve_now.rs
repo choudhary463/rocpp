@@ -7,8 +7,11 @@ use rocpp_core::{
     },
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState, TimerId}, state_machine::connector::ConnectorState};
-
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, SeccState, TimerId},
+    state_machine::connector::ConnectorState,
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn reserve_now_ocpp(&mut self, unique_id: String, req: ReserveNowRequest) {
@@ -32,7 +35,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     self.add_timeout(
                         TimerId::Reservation(connector_id),
                         diff.num_seconds() as u64,
-                    ).await;
+                    )
+                    .await;
                     send_status = Some((
                         connector_id,
                         ConnectorState::reserved(
@@ -70,7 +74,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         self.add_timeout(
                             TimerId::Reservation(connector_id),
                             diff.num_seconds() as u64,
-                        ).await;
+                        )
+                        .await;
                     } else {
                         status = ReservationStatus::Occupied;
                     }

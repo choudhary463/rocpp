@@ -1,7 +1,10 @@
 use rocpp_core::v16::messages::heart_beat::HeartbeatResponse;
 
-use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::ChargePointInterface, state_machine::heartbeat::HeartbeatState};
-
+use crate::v16::{
+    cp::{ChargePoint, OcppError},
+    interfaces::ChargePointInterface,
+    state_machine::heartbeat::HeartbeatState,
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn heartbeat_response(&mut self, res: Result<HeartbeatResponse, OcppError>) {

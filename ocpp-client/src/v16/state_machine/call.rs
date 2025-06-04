@@ -1,4 +1,7 @@
-use alloc::{string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use rocpp_core::{
     format::{
         error::GenericError,
@@ -9,7 +12,10 @@ use rocpp_core::{
 };
 use serde::Serialize;
 
-use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::{ChargePointInterface, TimerId}};
+use crate::v16::{
+    cp::{ChargePoint, OcppError},
+    interfaces::{ChargePointInterface, TimerId},
+};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub(crate) enum CallAction {
@@ -35,12 +41,11 @@ impl core::fmt::Display for CallAction {
             CallAction::MeterValues => "MeterValues",
             CallAction::StopTransaction => "StopTransaction",
             CallAction::DiagnosticsStatusNotification => "DiagnosticsStatusNotification",
-            CallAction::FirmwareStatusNotification => "FirmwareStatusNotification"
+            CallAction::FirmwareStatusNotification => "FirmwareStatusNotification",
         };
         write!(f, "{s}")
     }
 }
-
 
 #[derive(PartialEq)]
 pub(crate) enum OutgoingCallState {
@@ -53,10 +58,12 @@ pub(crate) enum OutgoingCallState {
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn on_outgoing_offline(&mut self) {
-        self.handle_call_response(Err(OcppError::Other(GenericError::Offline)), false).await;
+        self.handle_call_response(Err(OcppError::Other(GenericError::Offline)), false)
+            .await;
         let drained: Vec<_> = self.pending_calls.drain(..).collect();
         for (_, action) in drained {
-            self.dispatch_response(action, Err(OcppError::Other(GenericError::Offline))).await;
+            self.dispatch_response(action, Err(OcppError::Other(GenericError::Offline)))
+                .await;
         }
     }
 
@@ -114,10 +121,15 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         })
         .and_then(|r| r)
     }
-    async fn dispatch_response(&mut self, action: CallAction, res: Result<serde_json::Value, OcppError>) {
+    async fn dispatch_response(
+        &mut self,
+        action: CallAction,
+        res: Result<serde_json::Value, OcppError>,
+    ) {
         match action {
             CallAction::BootNotification => {
-                self.boot_notification_response(Self::parse_response(res)).await
+                self.boot_notification_response(Self::parse_response(res))
+                    .await
             }
             CallAction::Heartbeat => self.heartbeat_response(Self::parse_response(res)).await,
             CallAction::Authorize => self.authorized_response(Self::parse_response(res)).await,
@@ -125,11 +137,13 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 self.status_notification_response(Self::parse_response(res))
             }
             CallAction::StartTransaction => {
-                self.start_transaction_response(Self::parse_response(res)).await
+                self.start_transaction_response(Self::parse_response(res))
+                    .await
             }
             CallAction::MeterValues => self.meter_values_response(Self::parse_response(res)).await,
             CallAction::StopTransaction => {
-                self.stop_transaction_response(Self::parse_response(res)).await
+                self.stop_transaction_response(Self::parse_response(res))
+                    .await
             }
             CallAction::DiagnosticsStatusNotification => {
                 self.diagnostics_status_notification_response(Self::parse_response(res))

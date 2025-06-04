@@ -4,7 +4,10 @@ use core::task::{Context, Poll};
 use chrono::{DateTime, Utc};
 use rocpp_core::v16::types::ChargePointStatus;
 
-use super::{ChargePointInterface, Diagnostics, DiagnosticsResponse, Firmware, Hardware, HardwareEvent, KeyValueStore, MeterData, MeterDataType, TimeoutScheduler, TimerId, Websocket, WsEvent};
+use super::{
+    ChargePointInterface, Diagnostics, DiagnosticsResponse, Firmware, Hardware, HardwareEvent,
+    KeyValueStore, MeterData, MeterDataType, TimeoutScheduler, TimerId, Websocket, WsEvent,
+};
 
 pub struct ChargePointInterfaceFacade<K, D, Fw, Ts, Hw, Ws> {
     kv: K,
@@ -17,7 +20,14 @@ pub struct ChargePointInterfaceFacade<K, D, Fw, Ts, Hw, Ws> {
 
 impl<K, D, Fw, Ts, Hw, Ws> ChargePointInterfaceFacade<K, D, Fw, Ts, Hw, Ws> {
     pub fn new(kv: K, diag: D, fw: Fw, ts: Ts, hw: Hw, ws: Ws) -> Self {
-        Self { kv, diag, fw, ts, hw, ws }
+        Self {
+            kv,
+            diag,
+            fw,
+            ts,
+            hw,
+            ws,
+        }
     }
 }
 
@@ -52,7 +62,11 @@ impl<K, D, Fw, Ts, Hw, Ws> Diagnostics for ChargePointInterfaceFacade<K, D, Fw, 
 where
     D: Diagnostics,
 {
-    async fn get_file_name(&mut self, start_time: Option<DateTime<Utc>>, stop_time: Option<DateTime<Utc>>) -> Option<String> {
+    async fn get_file_name(
+        &mut self,
+        start_time: Option<DateTime<Utc>>,
+        stop_time: Option<DateTime<Utc>>,
+    ) -> Option<String> {
         self.diag.get_file_name(start_time, stop_time).await
     }
     async fn diagnostics_upload(&mut self, location: String, timeout: u64) {
@@ -112,7 +126,11 @@ where
     async fn update_status(&mut self, connector_id: usize, status: ChargePointStatus) {
         self.hw.update_status(connector_id, status).await
     }
-    async fn get_meter_value(&mut self, connector_id: usize, kind: &MeterDataType) -> Option<MeterData> {
+    async fn get_meter_value(
+        &mut self,
+        connector_id: usize,
+        kind: &MeterDataType,
+    ) -> Option<MeterData> {
         self.hw.get_meter_value(connector_id, kind).await
     }
     fn poll_hardware_events(&mut self, cx: &mut Context<'_>) -> Poll<HardwareEvent> {
@@ -149,4 +167,5 @@ where
     Ts: TimeoutScheduler,
     Hw: Hardware,
     Ws: Websocket,
-{}
+{
+}

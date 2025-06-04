@@ -7,11 +7,18 @@ use rocpp_core::{
     },
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState, TimerId}, state_machine::connector::ConnectorState};
-
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, SeccState, TimerId},
+    state_machine::connector::ConnectorState,
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub(crate) async fn change_availability_ocpp(&mut self, unique_id: String, req: ChangeAvailabilityRequest) {
+    pub(crate) async fn change_availability_ocpp(
+        &mut self,
+        unique_id: String,
+        req: ChangeAvailabilityRequest,
+    ) {
         let mut changes = Vec::new();
         let mut pending = false;
         if req.connector_id > self.configs.number_of_connectors.value {
@@ -91,7 +98,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 },
             }
             self.interface
-                .db_change_operative_state(connector_id, req.kind.clone()).await;
+                .db_change_operative_state(connector_id, req.kind.clone())
+                .await;
         }
         let status = if pending {
             AvailabilityStatus::Scheduled

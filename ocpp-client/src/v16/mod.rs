@@ -1,8 +1,8 @@
 #[macro_use]
 mod state_machine;
+mod cp;
 mod events;
 mod interfaces;
-mod cp;
 
 pub use cp::{ChargePoint, ChargePointConfig};
 pub use interfaces::*;

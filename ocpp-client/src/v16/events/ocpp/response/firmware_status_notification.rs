@@ -1,7 +1,9 @@
 use rocpp_core::v16::messages::firmware_status_notification::FirmwareStatusNotificationResponse;
 
-use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::ChargePointInterface};
-
+use crate::v16::{
+    cp::{ChargePoint, OcppError},
+    interfaces::ChargePointInterface,
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) fn firmware_status_notification_response(

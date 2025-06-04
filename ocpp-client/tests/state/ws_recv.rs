@@ -88,8 +88,7 @@ impl<T: serde::de::DeserializeOwned + 'static> AwaitWsMsgBuilder<T> {
     where
         F: Fn(&T) -> Option<String> + Send + 'static,
     {
-        self.default_validations
-            .push(Box::new( move |t: &T| f(t) ));
+        self.default_validations.push(Box::new(move |t: &T| f(t)));
         self
     }
     pub fn check_eq<F, U>(mut self, expected: &U, f: F) -> Self

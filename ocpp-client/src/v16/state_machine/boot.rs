@@ -1,6 +1,9 @@
 use rocpp_core::v16::types::RegistrationStatus;
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}};
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, TimerId},
+};
 
 use super::call::CallAction;
 
@@ -12,7 +15,8 @@ pub(crate) enum BootState {
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn send_boot_notification(&mut self) {
-        self.enqueue_call(CallAction::BootNotification, self.boot_info.clone()).await;
+        self.enqueue_call(CallAction::BootNotification, self.boot_info.clone())
+            .await;
         self.boot_state = BootState::WaitingForResponse
     }
 

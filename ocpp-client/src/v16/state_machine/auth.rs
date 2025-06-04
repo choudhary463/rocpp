@@ -1,8 +1,5 @@
 use alloc::string::String;
-use rocpp_core::v16::{
-    messages::authorize::AuthorizeRequest,
-    types::IdTagInfo,
-};
+use rocpp_core::v16::{messages::authorize::AuthorizeRequest, types::IdTagInfo};
 
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
@@ -18,7 +15,7 @@ impl LocalListChange {
     pub fn get_id_tag(&self) -> &str {
         match self {
             Self::Upsert { id_tag, .. } => &id_tag,
-            Self::Delete { id_tag } => &id_tag
+            Self::Delete { id_tag } => &id_tag,
         }
     }
 }
@@ -48,7 +45,12 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         if !self.configs.authorization_cache_enabled.value {
             return;
         }
-        if self.interface.db_get_from_local_list(&id_tag).await.is_some() {
+        if self
+            .interface
+            .db_get_from_local_list(&id_tag)
+            .await
+            .is_some()
+        {
             // skip
         } else {
             self.interface.db_update_cache(&id_tag, info).await;
@@ -56,7 +58,11 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         }
     }
 
-    pub(crate) async fn evaluate_id_tag_auth(&mut self, id_tag: String, connector_id: usize) -> AuthorizeStatus {
+    pub(crate) async fn evaluate_id_tag_auth(
+        &mut self,
+        id_tag: String,
+        connector_id: usize,
+    ) -> AuthorizeStatus {
         let is_auth_req_in_queue = self
             .pending_auth_requests
             .iter()
@@ -86,16 +92,18 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         };
         let mut info = self
             .interface
-            .db_get_from_local_list(&id_tag).await
+            .db_get_from_local_list(&id_tag)
+            .await
             .filter(|_| self.configs.local_auth_list_enabled.value);
         if info.is_none() {
-            info = self.interface
-            .db_get_from_cache(&id_tag).await
-            .filter(|_| self.configs.authorization_cache_enabled.value)
+            info = self
+                .interface
+                .db_get_from_cache(&id_tag)
+                .await
+                .filter(|_| self.configs.authorization_cache_enabled.value)
         }
         let now = self.get_time().await;
-        let mut parent_id_tag =
-            info.and_then(|t| t.is_valid(now).then(|| t.parent_id_tag.clone()));
+        let mut parent_id_tag = info.and_then(|t| t.is_valid(now).then(|| t.parent_id_tag.clone()));
 
         let is_online = self.call_permission();
 

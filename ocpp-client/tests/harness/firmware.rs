@@ -1,11 +1,11 @@
-use std::{task::{Context, Poll}};
+use std::task::{Context, Poll};
 
 use rocpp_client::v16::Firmware;
 
 pub struct MockFirmware {
     download_res: Option<bool>,
     is_downloaded: Option<bool>,
-    install_res: Option<bool>
+    install_res: Option<bool>,
 }
 
 impl MockFirmware {
@@ -13,7 +13,7 @@ impl MockFirmware {
         Self {
             download_res: None,
             is_downloaded: None,
-            install_res: None
+            install_res: None,
         }
     }
 }

@@ -1,7 +1,11 @@
 use alloc::string::String;
 use rocpp_core::v16::types::{ChargePointErrorCode, Reason};
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState, TimerId}, state_machine::{auth::AuthorizeStatus, connector::ConnectorState}};
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, SeccState, TimerId},
+    state_machine::{auth::AuthorizeStatus, connector::ConnectorState},
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub async fn secc_id_tag(&mut self, connector_id: usize, id_tag: String) {
@@ -12,7 +16,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 id_tag,
                 parent_id_tag,
             } => {
-                self.handle_id_tag_authorized(connector_id, id_tag, parent_id_tag).await;
+                self.handle_id_tag_authorized(connector_id, id_tag, parent_id_tag)
+                    .await;
             }
             AuthorizeStatus::SendAuthorize {
                 connector_id,
@@ -39,7 +44,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             ConnectorState::plugged(),
                             error_code,
                             info,
-                        ).await;
+                        )
+                        .await;
                     }
                     SeccState::Unplugged => {
                         // idle -> Unplugged ??
@@ -50,7 +56,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        ).await;
+                        )
+                        .await;
                     }
                 }
             }
@@ -65,7 +72,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             ConnectorState::idle(),
                             error_code,
                             info,
-                        ).await;
+                        )
+                        .await;
                     }
                     SeccState::Faulty => {
                         self.change_connector_state_with_error_code(
@@ -73,7 +81,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        ).await;
+                        )
+                        .await;
                     }
                 }
             }
@@ -88,7 +97,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         let parent_id_tag = parent_id_tag.clone();
                         let reservation_id = *reservation_id;
                         self.remove_timeout(TimerId::Authorize(connector_id)).await;
-                        self.start_transaction(connector_id, id_tag, parent_id_tag, reservation_id).await;
+                        self.start_transaction(connector_id, id_tag, parent_id_tag, reservation_id)
+                            .await;
                     }
                     SeccState::Unplugged => {
                         // Authorized + Unplugged ??
@@ -100,7 +110,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        ).await;
+                        )
+                        .await;
                     }
                 }
             }
@@ -111,7 +122,10 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 is_evse_suspended,
                 secc_state,
             } => {
-                if *secc_state != state && state == SeccState::Unplugged && self.configs.stop_transaction_on_evside_disconnect.value {
+                if *secc_state != state
+                    && state == SeccState::Unplugged
+                    && self.configs.stop_transaction_on_evside_disconnect.value
+                {
                     self.change_connector_state_with_error_code(
                         connector_id,
                         ConnectorState::transaction(
@@ -123,12 +137,10 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         ),
                         error_code,
                         info,
-                    ).await;
-                    self.stop_transaction(
-                        connector_id,
-                        None,
-                        Some(Reason::EVDisconnected),
-                    ).await;
+                    )
+                    .await;
+                    self.stop_transaction(connector_id, None, Some(Reason::EVDisconnected))
+                        .await;
                     return;
                 }
                 self.change_connector_state_with_error_code(
@@ -142,7 +154,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     ),
                     error_code,
                     info,
-                ).await;
+                )
+                .await;
             }
             ConnectorState::Finishing => {
                 match state {
@@ -155,7 +168,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             ConnectorState::idle(),
                             error_code,
                             info,
-                        ).await;
+                        )
+                        .await;
                     }
                     SeccState::Faulty => {
                         self.change_connector_state_with_error_code(
@@ -163,7 +177,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        ).await;
+                        )
+                        .await;
                     }
                 }
             }
@@ -173,13 +188,9 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 parent_id_tag,
                 ..
             } => {
-                let is_plugged= match state {
-                    SeccState::Plugged => {
-                        true
-                    }
-                    SeccState::Unplugged => {
-                        false
-                    }
+                let is_plugged = match state {
+                    SeccState::Plugged => true,
+                    SeccState::Unplugged => false,
                     SeccState::Faulty => {
                         self.remove_reservation(connector_id, *reservation_id).await;
                         self.change_connector_state_with_error_code(
@@ -187,7 +198,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        ).await;
+                        )
+                        .await;
                         return;
                     }
                 };
@@ -201,7 +213,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     ),
                     error_code,
                     info,
-                ).await;
+                )
+                .await;
             }
             ConnectorState::Unavailable(_) => {
                 self.change_connector_state_with_error_code(
@@ -209,7 +222,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     ConnectorState::Unavailable(state),
                     error_code,
                     info,
-                ).await;
+                )
+                .await;
             }
             ConnectorState::Faulty => match state {
                 SeccState::Plugged => {
@@ -218,7 +232,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         ConnectorState::plugged(),
                         error_code,
                         info,
-                    ).await;
+                    )
+                    .await;
                 }
                 SeccState::Unplugged => {
                     self.change_connector_state_with_error_code(
@@ -226,7 +241,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         ConnectorState::idle(),
                         error_code,
                         info,
-                    ).await;
+                    )
+                    .await;
                 }
                 SeccState::Faulty => {
                     self.change_connector_state_with_error_code(
@@ -234,7 +250,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         ConnectorState::faulty(),
                         error_code,
                         info,
-                    ).await;
+                    )
+                    .await;
                 }
             },
         }

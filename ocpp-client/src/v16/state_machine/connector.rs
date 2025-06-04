@@ -4,7 +4,10 @@ use rocpp_core::v16::{
     types::{ChargePointErrorCode, ChargePointStatus},
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState, TimerId}};
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, SeccState, TimerId},
+};
 
 use super::call::CallAction;
 
@@ -144,7 +147,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.enqueue_call(
             CallAction::StatusNotification,
             self.connector_status_notification[connector_id].clone(),
-        ).await;
+        )
+        .await;
         self.connector_status_notification_state[connector_id] = StatusNotificationState::Idle;
     }
     pub(crate) async fn on_status_notification_online(&mut self) {
@@ -156,12 +160,15 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         .map(|f| *f != self.connector_status_notification[connector_id].status)
                         .unwrap_or(true)
                     {
-                        self.interface.interface.update_status(
-                            connector_id,
-                            self.connector_status_notification[connector_id]
-                                .status
-                                .clone(),
-                        ).await;
+                        self.interface
+                            .interface
+                            .update_status(
+                                connector_id,
+                                self.connector_status_notification[connector_id]
+                                    .status
+                                    .clone(),
+                            )
+                            .await;
                         self.send_status_notification(connector_id).await;
                     } else {
                         self.connector_status_notification_state[connector_id] =
@@ -205,14 +212,17 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             .get_connector_state(self.firmware_state.ongoing_firmware_update());
         if new_status_notification_state != self.connector_status_notification[connector_id].status
         {
-            self.interface.interface
-                .update_status(connector_id, new_status_notification_state.clone()).await;
+            self.interface
+                .interface
+                .update_status(connector_id, new_status_notification_state.clone())
+                .await;
             self.update_status_notification_state(
                 connector_id,
                 new_status_notification_state,
                 error_code.unwrap_or(ChargePointErrorCode::NoError),
                 info,
-            ).await;
+            )
+            .await;
         }
     }
     pub(crate) async fn change_connector_state_with_error_code(
@@ -223,10 +233,16 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         info: Option<String>,
     ) {
         self.connector_state[connector_id] = state;
-        self.sync_connector_states(connector_id, error_code, info).await;
+        self.sync_connector_states(connector_id, error_code, info)
+            .await;
     }
-    pub(crate) async fn change_connector_state(&mut self, connector_id: usize, state: ConnectorState) {
-        self.change_connector_state_with_error_code(connector_id, state, None, None).await;
+    pub(crate) async fn change_connector_state(
+        &mut self,
+        connector_id: usize,
+        state: ConnectorState,
+    ) {
+        self.change_connector_state_with_error_code(connector_id, state, None, None)
+            .await;
     }
     pub(crate) async fn trigger_status_notification(&mut self, connector_id: usize) {
         for connector_id in if connector_id == 0 {
@@ -241,7 +257,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.add_timeout(
             TimerId::StatusNotification(connector_id),
             self.configs.minimum_status_duration.value,
-        ).await;
+        )
+        .await;
         self.connector_status_notification_state[connector_id] =
             StatusNotificationState::Stabilizing(last_sent_status);
     }
@@ -275,7 +292,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 if *last_sent != status {
                     self.stabilize(connector_id, last_sent.clone()).await;
                 } else {
-                    self.remove_timeout(TimerId::StatusNotification(connector_id)).await;
+                    self.remove_timeout(TimerId::StatusNotification(connector_id))
+                        .await;
                     self.connector_status_notification_state[connector_id] =
                         StatusNotificationState::Idle;
                 }

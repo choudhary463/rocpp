@@ -2,11 +2,17 @@ use rocpp_core::v16::{
     messages::boot_notification::BootNotificationResponse, types::RegistrationStatus,
 };
 
-use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::{ChargePointInterface, TimerId}, state_machine::boot::BootState};
-
+use crate::v16::{
+    cp::{ChargePoint, OcppError},
+    interfaces::{ChargePointInterface, TimerId},
+    state_machine::boot::BootState,
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub(crate) async fn boot_notification_response(&mut self, res: Result<BootNotificationResponse, OcppError>) {
+    pub(crate) async fn boot_notification_response(
+        &mut self,
+        res: Result<BootNotificationResponse, OcppError>,
+    ) {
         match &self.boot_state {
             BootState::WaitingForResponse => {
                 let prev = self.registration_status.clone();
@@ -26,7 +32,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     if backoff > 0 {
                         self.configs
                             .heartbeat_interval
-                            .update(backoff, &mut self.interface).await;
+                            .update(backoff, &mut self.interface)
+                            .await;
                     }
                     if prev != RegistrationStatus::Accepted {
                         self.notify_online().await;

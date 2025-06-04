@@ -11,7 +11,6 @@ use rocpp_core::{
 
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn remote_stop_transaction_ocpp(
         &mut self,
@@ -33,7 +32,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.send_ws_msg(res.encode()).await;
 
         if let Some(connector_id) = connector_id {
-            self.stop_transaction(connector_id, None, Some(Reason::Remote)).await;
+            self.stop_transaction(connector_id, None, Some(Reason::Remote))
+                .await;
         }
     }
 }

@@ -9,11 +9,12 @@ use rocpp_core::v16::{
 };
 use serde::Serialize;
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState}};
-
-use super::{
-    call::CallAction, clock::Instant, connector::ConnectorState, firmware::FirmwareState
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, SeccState},
 };
+
+use super::{call::CallAction, clock::Instant, connector::ConnectorState, firmware::FirmwareState};
 
 #[derive(Clone)]
 pub(crate) enum TransactionTime {
@@ -142,17 +143,23 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     .remove(&local_transaction_id);
             }
         }
-        self.interface.db_pop_transaction_event(
-            self.transaction_tail,
-            local_transaction_id,
-            transaction_id,
-            meter_tx,
-        ).await;
+        self.interface
+            .db_pop_transaction_event(
+                self.transaction_tail,
+                local_transaction_id,
+                transaction_id,
+                meter_tx,
+            )
+            .await;
         self.transaction_tail += 1;
         self.transaction_event_state = TransactionEventState::Idle;
         self.transaction_event_retries = 0;
         if self.transaction_tail != self.transaction_head {
-            self.transacion_current_event = Some(self.interface.db_get_transaction_event(self.transaction_tail).await);
+            self.transacion_current_event = Some(
+                self.interface
+                    .db_get_transaction_event(self.transaction_tail)
+                    .await,
+            );
         } else {
             self.transacion_current_event = None;
         }
@@ -210,7 +217,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                                     .get(&t.local_transaction_id)
                                     .map(|f| *f)
                                     .unwrap_or(0);
-                                self.pop_event(Some(t.local_transaction_id), None, Some(meter_tx)).await;
+                                self.pop_event(Some(t.local_transaction_id), None, Some(meter_tx))
+                                    .await;
                             }
                         }
                     }
@@ -236,18 +244,30 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     .insert(t.local_transaction_id, t.connector_id);
             }
             TransactionEvent::Stop(t) => {
-                if let Some(len) = self.transaction_stop_meter_val_count.get(&t.local_transaction_id) {
-                    t.transaction_data = Some(self.interface.db_get_all_stop_meter_val(t.local_transaction_id, *len).await)
+                if let Some(len) = self
+                    .transaction_stop_meter_val_count
+                    .get(&t.local_transaction_id)
+                {
+                    t.transaction_data = Some(
+                        self.interface
+                            .db_get_all_stop_meter_val(t.local_transaction_id, *len)
+                            .await,
+                    )
                 }
             }
             _ => {}
         }
         self.interface
-            .db_push_transaction_event(self.transaction_head, event).await;
+            .db_push_transaction_event(self.transaction_head, event)
+            .await;
 
         self.transaction_head += 1;
         if self.transacion_current_event.is_none() {
-            self.transacion_current_event = Some(self.interface.db_get_transaction_event(self.transaction_tail).await);
+            self.transacion_current_event = Some(
+                self.interface
+                    .db_get_transaction_event(self.transaction_tail)
+                    .await,
+            );
         }
         self.process_transaction().await;
     }
@@ -268,7 +288,9 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 .insert(local_transaction_id, 1);
             0
         };
-        self.interface.db_add_stop_meter_val(local_transaction_id, index, values).await;
+        self.interface
+            .db_add_stop_meter_val(local_transaction_id, index, values)
+            .await;
     }
     pub(crate) async fn on_transaction_online(&mut self) {
         self.process_transaction().await;
@@ -292,8 +314,12 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 false,
                 SeccState::Plugged,
             ),
-        ).await;
-        let meter_start = self.interface.get_start_stop_meter_value(connector_id).await;
+        )
+        .await;
+        let meter_start = self
+            .interface
+            .get_start_stop_meter_value(connector_id)
+            .await;
         let start_event = StartTransactionEvent {
             local_transaction_id,
             connector_id,
@@ -303,7 +329,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             timestamp: self.get_transaction_time().await,
         };
         self.start_meter_data(connector_id).await;
-        self.add_transaction_event(TransactionEvent::Start(start_event)).await;
+        self.add_transaction_event(TransactionEvent::Start(start_event))
+            .await;
     }
 
     pub(crate) async fn stop_transaction(
@@ -330,7 +357,10 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     }
                 };
                 self.active_local_transactions[connector_id] = None;
-                let meter_stop = self.interface.get_start_stop_meter_value(connector_id).await;
+                let meter_stop = self
+                    .interface
+                    .get_start_stop_meter_value(connector_id)
+                    .await;
                 let stop_event = StopTransactionEvent {
                     local_transaction_id: *local_transaction_id,
                     id_tag,
@@ -361,10 +391,12 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 local_transaction_id: local_transaction_id_tx,
                 is_evse_suspended,
                 ..
-                } = &mut self.connector_state[*connector_id] {
+            } = &mut self.connector_state[*connector_id]
+            {
                 if *local_transaction_id_tx == local_transaction_id {
                     if self.configs.stop_transaction_on_invalid_id.value {
-                        self.stop_transaction(*connector_id, None, Some(Reason::DeAuthorized)).await;
+                        self.stop_transaction(*connector_id, None, Some(Reason::DeAuthorized))
+                            .await;
                     } else {
                         *is_evse_suspended = true;
                         self.sync_connector_states(*connector_id, None, None).await;
@@ -373,10 +405,16 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             }
         }
     }
-    pub(crate) async fn handle_unfinished_transactions(&mut self, unfinished_transactions: BTreeSet<u32>) {
+    pub(crate) async fn handle_unfinished_transactions(
+        &mut self,
+        unfinished_transactions: BTreeSet<u32>,
+    ) {
         for local_transaction_id in unfinished_transactions {
             if let Some(connector_id) = self.transaction_connector_map.get(&local_transaction_id) {
-                let meter_stop = self.interface.get_start_stop_meter_value(*connector_id).await;
+                let meter_stop = self
+                    .interface
+                    .get_start_stop_meter_value(*connector_id)
+                    .await;
                 let stop_event = TransactionEvent::Stop(StopTransactionEvent {
                     local_transaction_id,
                     id_tag: None,

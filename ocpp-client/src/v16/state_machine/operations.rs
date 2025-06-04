@@ -1,7 +1,10 @@
 use alloc::string::String;
 use rocpp_core::v16::types::{Reason, RegistrationStatus, ResetType};
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}};
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, TimerId},
+};
 
 use super::{call::OutgoingCallState, connector::ConnectorState};
 
@@ -21,16 +24,19 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     self.add_timeout(
                         TimerId::Authorize(connector_id),
                         self.configs.connection_time_out.value,
-                    ).await;
+                    )
+                    .await;
                     self.change_connector_state(
                         connector_id,
                         ConnectorState::authorized(id_tag, parent_id_tag, None),
-                    ).await;
+                    )
+                    .await;
                 }
             }
             ConnectorState::Plugged => {
                 if !self.firmware_state.ongoing_firmware_update() && self.pending_reset.is_none() {
-                    self.start_transaction(connector_id, id_tag, parent_id_tag, None).await;
+                    self.start_transaction(connector_id, id_tag, parent_id_tag, None)
+                        .await;
                 }
             }
             ConnectorState::Authorized {
@@ -53,7 +59,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                     || (transaction_parent_id_tag.is_some()
                         && *transaction_parent_id_tag == parent_id_tag)
                 {
-                    self.stop_transaction(connector_id, Some(id_tag), Some(Reason::Local)).await;
+                    self.stop_transaction(connector_id, Some(id_tag), Some(Reason::Local))
+                        .await;
                 }
             }
             ConnectorState::Finishing => {
@@ -79,14 +86,17 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             id_tag,
                             parent_id_tag,
                             Some(reservation_id),
-                        ).await;
+                        )
+                        .await;
                     } else {
                         self.change_connector_state(
                             connector_id,
                             ConnectorState::authorized(id_tag, parent_id_tag, Some(reservation_id)),
-                        ).await;
+                        )
+                        .await;
                     }
-                    self.remove_timeout(TimerId::Reservation(connector_id)).await;
+                    self.remove_timeout(TimerId::Reservation(connector_id))
+                        .await;
                 }
             }
             ConnectorState::Unavailable(_) => {
@@ -101,11 +111,12 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.pending_reset = Some(kind.clone());
         let reason = reason.or(match kind {
             ResetType::Hard => Some(Reason::HardReset),
-            ResetType::Soft => Some(Reason::SoftReset)
+            ResetType::Soft => Some(Reason::SoftReset),
         });
         for connector_id in 0..self.configs.number_of_connectors.value {
             if self.connector_state[connector_id].in_transaction() {
-                self.stop_transaction(connector_id, None, reason.clone()).await;
+                self.stop_transaction(connector_id, None, reason.clone())
+                    .await;
             }
         }
         match kind {

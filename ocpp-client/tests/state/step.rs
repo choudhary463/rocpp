@@ -11,7 +11,8 @@ use crate::{
 };
 
 use super::{
-    any_order::AnyOrder, either::Either, measure::Measure, operation::Operation, optional::Optional, timestamp::WithNowTimestamp
+    any_order::AnyOrder, either::Either, measure::Measure, operation::Operation,
+    optional::Optional, timestamp::WithNowTimestamp,
 };
 
 pub enum StepResult {
@@ -44,7 +45,7 @@ pub enum TestKind {
     Optional(usize),
     Operation(Box<dyn FnOnce(&mut CpHarness) + Send>),
     Combine(usize),
-    Either
+    Either,
 }
 
 impl std::fmt::Debug for TestKind {
@@ -196,7 +197,6 @@ impl TestChain {
                     }
                     StartResult::Stay => {}
                 }
-
             }
             let (ev, d) = h.bus_rx.next().await.unwrap_or((
                 Event::Connection(ConnectionEvents::Timeout),
@@ -210,12 +210,12 @@ impl TestChain {
                 }
                 StepResult::Done => {
                     h.stop_token.cancel();
-                    return
-                },
+                    return;
+                }
                 StepResult::Fail(msg) => {
                     h.stop_token.cancel();
                     panic!("{:?}", msg);
-                },
+                }
             }
             tokio::task::yield_now().await;
         }

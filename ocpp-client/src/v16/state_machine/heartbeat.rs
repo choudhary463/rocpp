@@ -1,6 +1,9 @@
 use rocpp_core::v16::messages::heart_beat::HeartbeatRequest;
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}};
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointInterface, TimerId},
+};
 
 use super::call::CallAction;
 
@@ -21,7 +24,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.heartbeat_state = HeartbeatState::Sleeping;
     }
     pub(crate) async fn send_heartbeat(&mut self) {
-        self.enqueue_call(CallAction::Heartbeat, HeartbeatRequest {}).await;
+        self.enqueue_call(CallAction::Heartbeat, HeartbeatRequest {})
+            .await;
         self.heartbeat_state = HeartbeatState::WaitingForResponse;
     }
     pub(crate) async fn heartbeat_activity(&mut self) {
@@ -64,7 +68,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn trigger_heartbeat(&mut self) {
         match &self.heartbeat_state {
             HeartbeatState::Idle => {
-                self.enqueue_call(CallAction::Heartbeat, HeartbeatRequest {}).await;
+                self.enqueue_call(CallAction::Heartbeat, HeartbeatRequest {})
+                    .await;
             }
             HeartbeatState::Sleeping => {
                 self.remove_timeout(TimerId::Heartbeat).await;

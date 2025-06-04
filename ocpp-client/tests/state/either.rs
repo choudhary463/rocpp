@@ -14,7 +14,7 @@ pub struct Either {
 }
 
 impl Either {
-    pub fn new(a: Box<dyn State>, b: Box<dyn State>,) -> Self {
+    pub fn new(a: Box<dyn State>, b: Box<dyn State>) -> Self {
         Self {
             a,
             b,
@@ -36,10 +36,8 @@ impl State for Either {
                 StepResult::Next(next) => {
                     self.a = next;
                     StepResult::Pending
-                },
-                StepResult::Done => {
-                    self.next.take().map_or(StepResult::Done, StepResult::Next)
-                },
+                }
+                StepResult::Done => self.next.take().map_or(StepResult::Done, StepResult::Next),
                 StepResult::Fail(e) => StepResult::Fail(e),
             }
         } else {
@@ -47,15 +45,15 @@ impl State for Either {
                 StepResult::Pending => {
                     self.started = true;
                     None
-                },
+                }
                 StepResult::Next(next) => {
                     self.started = true;
                     self.a = next;
                     None
-                },
+                }
                 StepResult::Done => {
                     return self.next.take().map_or(StepResult::Done, StepResult::Next);
-                },
+                }
                 StepResult::Fail(e) => Some(e),
             };
             if !self.started {
@@ -63,15 +61,15 @@ impl State for Either {
                     StepResult::Pending => {
                         self.started = true;
                         None
-                    },
+                    }
                     StepResult::Next(next) => {
                         self.started = true;
                         self.b = next;
                         None
-                    },
+                    }
                     StepResult::Done => {
                         return self.next.take().map_or(StepResult::Done, StepResult::Next);
-                    },
+                    }
                     StepResult::Fail(e) => Some(e),
                 };
                 if self.started {

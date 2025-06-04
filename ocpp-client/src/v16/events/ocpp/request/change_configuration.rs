@@ -7,7 +7,11 @@ use rocpp_core::{
     },
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::{ChargePointBackend, ChargePointInterface}, state_machine::config::OcppConfig};
+use crate::v16::{
+    cp::ChargePoint,
+    interfaces::{ChargePointBackend, ChargePointInterface},
+    state_machine::config::OcppConfig,
+};
 
 macro_rules! gen_update_ocpp_match {
     ($this:ident, $key:expr, { $($key_str:literal => $field:ident),+ }, $raw:expr) => {
@@ -47,8 +51,7 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         raw: String,
     ) -> Result<bool, ConfigurationStatus> {
         let (cfg_ref, db) = accessor(self);
-        let new_val = (cfg_ref.parser_fn)(&raw)
-            .ok_or(ConfigurationStatus::Rejected)?;
+        let new_val = (cfg_ref.parser_fn)(&raw).ok_or(ConfigurationStatus::Rejected)?;
 
         if let Some(validator) = &cfg_ref.validator {
             validator(&new_val)

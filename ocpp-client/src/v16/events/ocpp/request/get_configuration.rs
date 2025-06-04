@@ -1,4 +1,7 @@
-use alloc::{string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use rocpp_core::{
     format::{
         frame::{CallError, CallResult},
@@ -11,8 +14,9 @@ use rocpp_core::{
     },
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface, state_machine::config::OcppConfig};
-
+use crate::v16::{
+    cp::ChargePoint, interfaces::ChargePointInterface, state_machine::config::OcppConfig,
+};
 
 macro_rules! gen_get_ocpp_match {
     ($this:ident, $key:expr, { $($key_str:literal => $field:ident),+ }) => {
@@ -26,7 +30,11 @@ macro_rules! gen_get_ocpp_match {
 }
 
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub(crate) async fn get_configuration_ocpp(&mut self, unique_id: String, req: GetConfigurationRequest) {
+    pub(crate) async fn get_configuration_ocpp(
+        &mut self,
+        unique_id: String,
+        req: GetConfigurationRequest,
+    ) {
         if req.key.as_ref().map(|t| t.len()).unwrap_or(0)
             > self.configs.get_configuration_max_keys.value
         {

@@ -15,9 +15,7 @@ impl MockDatabase {
 }
 
 impl KeyValueStore for MockDatabase {
-    async fn db_init(&mut self) {
-
-    }
+    async fn db_init(&mut self) {}
 
     async fn db_transaction(&mut self, table: &str, ops: Vec<(&str, Option<&str>)>) {
         let tbl = self.tables.entry(table.to_string()).or_default();
@@ -31,7 +29,9 @@ impl KeyValueStore for MockDatabase {
     }
 
     async fn db_get(&mut self, table: &str, key: &str) -> Option<&str> {
-        self.tables.get(table).and_then(|tbl| tbl.get(key).map(|t| t.as_str()))
+        self.tables
+            .get(table)
+            .and_then(|tbl| tbl.get(key).map(|t| t.as_str()))
     }
 
     async fn db_get_all(&mut self, table: &str) -> Vec<(&str, &str)> {
@@ -49,20 +49,21 @@ impl KeyValueStore for MockDatabase {
         self.tables.remove(table);
     }
 
-    async fn db_delete_all(&mut self) {
-        
-    }
+    async fn db_delete_all(&mut self) {}
 }
 
 pub struct FileDatabase {
     dir: PathBuf,
-    map: HashMap<String, String>
+    map: HashMap<String, String>,
 }
 
 impl FileDatabase {
     pub fn new(dir: PathBuf) -> Self {
         fs::create_dir_all(&dir).unwrap();
-        Self { dir, map: HashMap::new() }
+        Self {
+            dir,
+            map: HashMap::new(),
+        }
     }
 
     fn load_table(&mut self, table: &str) -> &mut HashMap<String, String> {
@@ -103,7 +104,10 @@ impl KeyValueStore for FileDatabase {
     }
 
     async fn db_get_all(&mut self, table: &str) -> Vec<(&str, &str)> {
-        self.load_table(table).iter().map(|(k, v)| (k.as_str(), v.as_str())).collect()
+        self.load_table(table)
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect()
     }
 
     async fn db_count_keys(&mut self, table: &str) -> usize {

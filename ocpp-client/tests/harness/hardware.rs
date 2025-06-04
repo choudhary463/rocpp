@@ -1,10 +1,15 @@
-use std::{future::Future, pin::Pin, task::{Context, Poll}, time::Duration};
+use std::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+    time::Duration,
+};
 
 use flume::{r#async::RecvFut, unbounded, Sender};
+use futures::FutureExt;
 use rocpp_client::v16::{Hardware, HardwareEvent, MeterData, MeterDataType};
 use rocpp_core::v16::types::ChargePointStatus;
 use tokio_util::sync::CancellationToken;
-use futures::FutureExt;
 
 pub struct MockHardware {
     hard_reset_token: CancellationToken,
@@ -13,13 +18,16 @@ pub struct MockHardware {
 }
 
 impl MockHardware {
-    pub fn new(token: CancellationToken) -> (Self,  Sender<HardwareEvent>) {
+    pub fn new(token: CancellationToken) -> (Self, Sender<HardwareEvent>) {
         let (ev_tx, ev_rx) = unbounded();
-        (Self {
-            hard_reset_token: token,
-            ev_rx_fut: ev_rx.into_recv_async(),
-            cancel_fut: None
-        }, ev_tx)
+        (
+            Self {
+                hard_reset_token: token,
+                ev_rx_fut: ev_rx.into_recv_async(),
+                cancel_fut: None,
+            },
+            ev_tx,
+        )
     }
 }
 
@@ -41,7 +49,11 @@ impl Hardware for MockHardware {
             status
         );
     }
-    async fn get_meter_value(&mut self, connector_id: usize, kind: &MeterDataType) -> Option<MeterData> {
+    async fn get_meter_value(
+        &mut self,
+        connector_id: usize,
+        kind: &MeterDataType,
+    ) -> Option<MeterData> {
         log::info!(
             "requested meter value for connector: {}, kind: {:?}",
             connector_id,

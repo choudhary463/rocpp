@@ -1,6 +1,7 @@
 pub mod any_order;
 pub mod combined;
 pub mod connection;
+pub mod either;
 pub mod measure;
 pub mod operation;
 pub mod optional;
@@ -9,4 +10,3 @@ pub mod secc;
 pub mod step;
 pub mod timestamp;
 pub mod ws_recv;
-pub mod either;

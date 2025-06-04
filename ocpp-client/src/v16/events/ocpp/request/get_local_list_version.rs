@@ -8,7 +8,6 @@ use rocpp_core::{
 
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn local_list_version(&mut self) -> i32 {
         if self.configs.local_auth_list_enabled.value {

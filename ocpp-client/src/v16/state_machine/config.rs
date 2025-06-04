@@ -1,6 +1,11 @@
 use core::str::FromStr;
 
-use alloc::{boxed::Box, format, string::{String, ToString}, vec::Vec};
+use alloc::{
+    boxed::Box,
+    format,
+    string::{String, ToString},
+    vec::Vec,
+};
 
 use rocpp_core::v16::types::{Measurand, Phase};
 
@@ -64,7 +69,11 @@ impl<T> OcppConfig<T> {
         self.reboot_required = true;
         self
     }
-    pub async fn update<I: ChargePointInterface>(&mut self, value: T, interface: &mut ChargePointBackend<I>) {
+    pub async fn update<I: ChargePointInterface>(
+        &mut self,
+        value: T,
+        interface: &mut ChargePointBackend<I>,
+    ) {
         let raw = (self.format_fn)(&value);
         interface.db_update_config(&self.key, &raw).await;
         self.raw = raw;
@@ -278,7 +287,8 @@ impl MeterDataType {
                         }),
                         _ => {
                             let measurand =
-                                serde_json::from_str::<Measurand>(&format!("\"{}\"", token)).ok()?;
+                                serde_json::from_str::<Measurand>(&format!("\"{}\"", token))
+                                    .ok()?;
                             Some(MeterDataType {
                                 measurand,
                                 phase: None,
@@ -286,7 +296,8 @@ impl MeterDataType {
                         }
                     }
                 } else {
-                    let measurand = serde_json::from_str::<Measurand>(&format!("\"{}\"", token)).ok()?;
+                    let measurand =
+                        serde_json::from_str::<Measurand>(&format!("\"{}\"", token)).ok()?;
                     Some(MeterDataType {
                         measurand,
                         phase: None,

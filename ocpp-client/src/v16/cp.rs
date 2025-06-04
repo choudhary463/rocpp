@@ -1,14 +1,44 @@
 use core::{future::poll_fn, task::Poll};
 
-use alloc::{collections::{btree_map::BTreeMap, vec_deque::VecDeque}, string::String, vec, vec::Vec};
+use alloc::{
+    collections::{btree_map::BTreeMap, vec_deque::VecDeque},
+    string::String,
+    vec,
+    vec::Vec,
+};
 use chrono::{DateTime, Utc};
-use rocpp_core::{format::frame::Call, v16::{messages::{boot_notification::BootNotificationRequest, status_notification::StatusNotificationRequest}, protocol_error::ProtocolError, types::{RegistrationStatus, ResetType}}};
 use rand::{rngs::SmallRng, SeedableRng};
+use rocpp_core::{
+    format::frame::Call,
+    v16::{
+        messages::{
+            boot_notification::BootNotificationRequest,
+            status_notification::StatusNotificationRequest,
+        },
+        protocol_error::ProtocolError,
+        types::{RegistrationStatus, ResetType},
+    },
+};
 
-use crate::v16::{state_machine::{boot::BootState, call::{CallAction, OutgoingCallState}, clock::Instant, config::OcppConfigs, connector::{ConnectorState, StatusNotificationState}, diagnostics::DiagnosticsState, firmware::FirmwareState, heartbeat::HeartbeatState, meter::MeterState, transaction::TransactionEventState}};
+use crate::v16::state_machine::{
+    boot::BootState,
+    call::{CallAction, OutgoingCallState},
+    clock::Instant,
+    config::OcppConfigs,
+    connector::{ConnectorState, StatusNotificationState},
+    diagnostics::DiagnosticsState,
+    firmware::FirmwareState,
+    heartbeat::HeartbeatState,
+    meter::MeterState,
+    transaction::TransactionEventState,
+};
 
-use super::{interfaces::{ChargePointBackend, ChargePointEvent, ChargePointInterface, HardwareEvent, WsEvent}, state_machine::transaction::TransactionEvent};
-
+use super::{
+    interfaces::{
+        ChargePointBackend, ChargePointEvent, ChargePointInterface, HardwareEvent, WsEvent,
+    },
+    state_machine::transaction::TransactionEvent,
+};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub struct ChargePointConfig {
@@ -63,7 +93,7 @@ pub struct ChargePoint<I: ChargePointInterface> {
 impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) async fn new(
         mut interface: ChargePointBackend<I>,
-        configs: ChargePointConfig
+        configs: ChargePointConfig,
     ) -> Self {
         let db_configs = interface.db_get_all_configs().await;
 
@@ -74,7 +104,6 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         let (connector_state, connector_status_notification) =
             interface.db_get_connector_state(num_connectors).await;
 
-
         let (
             local_transaction_id,
             transaction_tail,
@@ -82,7 +111,7 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             transaction_map,
             transaction_connector_map,
             transaction_stop_meter_val_count,
-            unfinished_transactions
+            unfinished_transactions,
         ) = interface.db_get_transaction_data().await;
 
         let local_list_entries_count = interface.db_get_local_list_entries_count().await;
@@ -126,11 +155,15 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             soft_reset_now: false,
             configs: ocpp_configs,
         };
-        res.handle_unfinished_transactions(unfinished_transactions).await;
+        res.handle_unfinished_transactions(unfinished_transactions)
+            .await;
         res
     }
 
-    async fn run_once(interface: ChargePointBackend<I>, configs: ChargePointConfig) -> (ChargePointBackend<I>, bool) {
+    async fn run_once(
+        interface: ChargePointBackend<I>,
+        configs: ChargePointConfig,
+    ) -> (ChargePointBackend<I>, bool) {
         let mut cp = Self::new(interface, configs).await;
         cp.init().await;
         let mut soft_reset = false;
@@ -150,7 +183,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 }
                 match &cp.firmware_state {
                     FirmwareState::Downloading(_) => {
-                        if let Poll::Ready(res) = cp.interface.interface.poll_firmware_download(cx) {
+                        if let Poll::Ready(res) = cp.interface.interface.poll_firmware_download(cx)
+                        {
                             return Poll::Ready(ChargePointEvent::FirmwareDownload(res));
                         }
                     }
@@ -163,21 +197,21 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 }
                 match &cp.diagnostics_state {
                     DiagnosticsState::Uploading(_) => {
-                        if let Poll::Ready(res) = cp.interface.interface.poll_diagnostics_upload(cx) {
+                        if let Poll::Ready(res) = cp.interface.interface.poll_diagnostics_upload(cx)
+                        {
                             return Poll::Ready(ChargePointEvent::Diagnostics(res));
                         }
                     }
-                    _ => {
-                            
-                    }
+                    _ => {}
                 }
                 Poll::Pending
-            }).await;
+            })
+            .await;
             match event {
                 ChargePointEvent::Reset => {
                     log::info!("reset trigger");
                     break;
-                },
+                }
                 ChargePointEvent::Hardware(ev) => {
                     log::info!("received hardware event: {:?}", ev);
                     match ev {
@@ -185,41 +219,40 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             cp.secc_id_tag(connector_id, id_tag).await;
                         }
                         HardwareEvent::State(connector_id, state, error_code, info) => {
-                            cp.secc_change_state(connector_id, state, error_code, info).await;
+                            cp.secc_change_state(connector_id, state, error_code, info)
+                                .await;
                         }
                     }
-                },
-                ChargePointEvent::Ws(ev) => {
-                    match ev {
-                        WsEvent::Connected => {
-                            log::info!("ws connected");
-                            assert!(!cp.ws_connected);
-                            cp.ws_connected().await;
-                        }
-                        WsEvent::Disconnected => {
-                            log::info!("ws disconnected");
-                            assert!(cp.ws_connected);
-                            cp.ws_disconnected().await;
-                        }
-                        WsEvent::Msg(msg) => {
-                            log::info!("[MSG_IN] {}", msg);
-                            assert!(cp.ws_connected);
-                            cp.got_ws_msg(msg).await;
-                        }
+                }
+                ChargePointEvent::Ws(ev) => match ev {
+                    WsEvent::Connected => {
+                        log::info!("ws connected");
+                        assert!(!cp.ws_connected);
+                        cp.ws_connected().await;
+                    }
+                    WsEvent::Disconnected => {
+                        log::info!("ws disconnected");
+                        assert!(cp.ws_connected);
+                        cp.ws_disconnected().await;
+                    }
+                    WsEvent::Msg(msg) => {
+                        log::info!("[MSG_IN] {}", msg);
+                        assert!(cp.ws_connected);
+                        cp.got_ws_msg(msg).await;
                     }
                 },
                 ChargePointEvent::Timeout(id) => {
                     log::trace!("id timedout: {:?}", id);
                     cp.handle_timeout(id).await;
-                },
+                }
                 ChargePointEvent::FirmwareDownload(res) => {
                     log::debug!("firmware download res: {}", res);
                     cp.firmware_download_response(res).await;
-                },
+                }
                 ChargePointEvent::FirmwareInstall(res) => {
                     log::debug!("firmware install res: {}", res);
                     cp.firmware_install_response(res).await;
-                },
+                }
                 ChargePointEvent::Diagnostics(res) => {
                     log::debug!("diagnostics upload res: {:?}", res);
                     cp.handle_diagnostics_response(res).await;
@@ -236,18 +269,21 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 }
                 match &cp.firmware_state {
                     FirmwareState::Downloading(_) => {
-                        let res = poll_fn(|cx| cp.interface.interface.poll_firmware_download(cx)).await;
+                        let res =
+                            poll_fn(|cx| cp.interface.interface.poll_firmware_download(cx)).await;
                         cp.firmware_download_response(res).await;
                     }
                     FirmwareState::Installing => {
-                        let res = poll_fn(|cx| cp.interface.interface.poll_firmware_install(cx)).await;
+                        let res =
+                            poll_fn(|cx| cp.interface.interface.poll_firmware_install(cx)).await;
                         cp.firmware_install_response(res).await;
                     }
                     _ => {}
                 }
                 match &cp.diagnostics_state {
                     DiagnosticsState::Uploading(_) => {
-                        let res = poll_fn(|cx| cp.interface.interface.poll_diagnostics_upload(cx)).await;
+                        let res =
+                            poll_fn(|cx| cp.interface.interface.poll_diagnostics_upload(cx)).await;
                         cp.handle_diagnostics_response(res).await;
                     }
                     _ => {}
@@ -262,7 +298,9 @@ impl<I: ChargePointInterface> ChargePoint<I> {
 
     pub async fn run(interface: I, mut configs: ChargePointConfig) {
         let mut interface = ChargePointBackend::new(interface);
-        interface.init(configs.default_ocpp_configs.clone(), configs.clear_db).await;
+        interface
+            .init(configs.default_ocpp_configs.clone(), configs.clear_db)
+            .await;
         loop {
             let (i, soft_reset) = Self::run_once(interface, configs.clone()).await;
             if !soft_reset {
@@ -273,5 +311,3 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         }
     }
 }
-
-

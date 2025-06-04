@@ -1,6 +1,6 @@
-use alloc::string::{String, ToString};
-use alloc::format;
 use super::frame::{Call, CallError, CallResult};
+use alloc::format;
+use alloc::string::{String, ToString};
 
 #[derive(Debug, Clone)]
 pub struct Invalid {
@@ -82,7 +82,7 @@ impl<T: serde::de::DeserializeOwned> OcppMessage<T> {
             Some(3) if arr.len() == 3 => {
                 let unique_id = arr[1].as_str().map(|s| s.to_string());
                 let payload = arr[2].clone();
-                
+
                 if let Some(unique_id) = unique_id {
                     OcppMessage::CallResponse(CallResponse::CallResult(CallResult {
                         unique_id,
@@ -103,7 +103,9 @@ impl<T: serde::de::DeserializeOwned> OcppMessage<T> {
                 let error_description = arr[3].as_str().map(|s| s.to_string());
                 let error_details = arr[4].clone();
 
-                if let (Some(unique_id), Ok(error_code), Some(error_description)) = (unique_id.clone(), error_code, error_description) {
+                if let (Some(unique_id), Ok(error_code), Some(error_description)) =
+                    (unique_id.clone(), error_code, error_description)
+                {
                     OcppMessage::CallResponse(CallResponse::CallError(CallError {
                         unique_id,
                         error_code,

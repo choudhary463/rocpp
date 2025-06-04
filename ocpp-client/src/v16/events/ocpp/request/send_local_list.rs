@@ -1,4 +1,7 @@
-use alloc::{string::{String, ToString}, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    vec::Vec,
+};
 use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
@@ -7,8 +10,9 @@ use rocpp_core::{
     },
 };
 
-use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface, state_machine::auth::LocalListChange};
-
+use crate::v16::{
+    cp::ChargePoint, interfaces::ChargePointInterface, state_machine::auth::LocalListChange,
+};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
     async fn send_local_list_ocpp_helper(&mut self, req: SendLocalListRequest) -> UpdateStatus {
@@ -46,7 +50,12 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 {
                     match id_tag_info {
                         Some(info) => {
-                            if !self.interface.db_get_from_local_list(&id_tag).await.is_some() {
+                            if !self
+                                .interface
+                                .db_get_from_local_list(&id_tag)
+                                .await
+                                .is_some()
+                            {
                                 net_delta += 1;
                             }
                             changes.push(LocalListChange::Upsert {
@@ -55,7 +64,12 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                             });
                         }
                         None => {
-                            if !self.interface.db_get_from_local_list(&id_tag).await.is_some() {
+                            if !self
+                                .interface
+                                .db_get_from_local_list(&id_tag)
+                                .await
+                                .is_some()
+                            {
                                 net_delta -= 1;
                                 changes.push(LocalListChange::Delete {
                                     id_tag: id_tag.clone(),
@@ -69,7 +83,8 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                 {
                     return UpdateStatus::Failed;
                 }
-                self.local_list_entries_count = (self.local_list_entries_count as isize + net_delta) as usize;
+                self.local_list_entries_count =
+                    (self.local_list_entries_count as isize + net_delta) as usize;
             }
             UpdateType::Full => {
                 let len = auth_list.len();
@@ -99,7 +114,7 @@ impl<I: ChargePointInterface> ChargePoint<I> {
                         });
                     }
                 }
-                self.local_list_entries_count =len;
+                self.local_list_entries_count = len;
             }
         }
 
@@ -108,11 +123,17 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         } else {
             req.list_version
         };
-        self.interface.db_update_local_list(list_version, changes).await;
+        self.interface
+            .db_update_local_list(list_version, changes)
+            .await;
         UpdateStatus::Accepted
     }
 
-    pub(crate) async fn send_local_list_ocpp(&mut self, unique_id: String, req: SendLocalListRequest) {
+    pub(crate) async fn send_local_list_ocpp(
+        &mut self,
+        unique_id: String,
+        req: SendLocalListRequest,
+    ) {
         let status = self.send_local_list_ocpp_helper(req).await;
         let payload = SendLocalListResponse { status };
         let res = CallResult::new(unique_id, payload);
