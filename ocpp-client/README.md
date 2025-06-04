@@ -1,4 +1,6 @@
-# `rocpp-client`
+# rocpp-client [![Crates.io Version](https://img.shields.io/crates/v/rocpp_client)](https://crates.io/crates/rocpp_client)
+
+
 
 OCPP 1.6 client-side implementation for EV chargers.
 
