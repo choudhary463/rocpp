@@ -498,7 +498,6 @@ dependencies = [
  "futures",
  "log",
  "rand",
- "rocpp_client",
  "rocpp_core",
  "serde",
  "serde_json",
