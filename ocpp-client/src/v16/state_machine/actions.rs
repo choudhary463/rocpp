@@ -1,80 +1,53 @@
-use alloc::{string::String, vec::Vec};
-use chrono::{DateTime, Utc};
-use ocpp_core::v16::types::ResetType;
+use alloc::string::String;
 
-use crate::v16::{cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}};
 
-#[derive(Debug)]
-pub enum CoreActions {
-    Connect(String),
-    SendWsMsg(String),
-    StartDiagnosticUpload {
-        location: String,
-        file_name: String,
-        start_time: Option<DateTime<Utc>>,
-        stop_time: Option<DateTime<Utc>>,
-        timeout: u64
-    },
-    DownloadFirmware(String),
-    InstallFirmware(Vec<u8>),
-    AddTimeout(TimerId, u64),
-    RemoveTimeout(TimerId),
-    SoftReset,
-}
-
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub fn connect(&mut self, cms_url: String) {
-        self.queued_actions.push_back(CoreActions::Connect(cms_url));
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub async fn connect(&mut self, cms_url: String) {
+        log::debug!("connect, cms_url: {}", cms_url);
+        self.interface.interface.ws_connect(cms_url).await;
     }
 
-    pub fn send_ws_msg(&mut self, msg: String) {
-        if self.ws_connected && self.pending_reset != Some(ResetType::Hard) {
-            self.queued_actions.push_back(CoreActions::SendWsMsg(msg));
-            self.heartbeat_activity();
-        }
+    pub async fn send_ws_msg(&mut self, msg: String) {
+        log::info!("[MSG_OUT] {}", msg);
+        self.interface.interface.ws_send(msg).await;
     }
 
-    pub fn start_diagnostics_upload(
+    pub async fn start_diagnostics_upload(
         &mut self,
         location: String,
-        file_name: String,
-        start_time: Option<DateTime<Utc>>,
-        stop_time: Option<DateTime<Utc>>,
         timeout: u64
     ) {
-        self.queued_actions
-            .push_back(CoreActions::StartDiagnosticUpload {
-                location,
-                file_name,
-                start_time,
-                stop_time,
-                timeout
-            });
+        log::debug!("start upload, location: {} ,timeout: {}", location, timeout);
+        self.interface.interface.diagnostics_upload(location, timeout).await;
     }
 
-    pub fn download_firmware(&mut self, firmware_url: String) {
-        self.queued_actions
-            .push_back(CoreActions::DownloadFirmware(firmware_url));
+    pub async fn download_firmware(&mut self, location: String) {
+        log::debug!("download firmware, location: {}", location);
+        self.interface.interface.firmware_download(location).await;
     }
 
-    pub fn install_firmware(&mut self, firmware_image: Vec<u8>) {
-        self.queued_actions
-            .push_back(CoreActions::InstallFirmware(firmware_image));
+    pub async fn install_firmware(&mut self) {
+        log::debug!("install firmware");
+        self.interface.interface.firmware_install().await;
     }
 
-    pub fn add_timeout(&mut self, timer_id: TimerId, timeout_secs: u64) {
-        self.queued_actions.push_back(CoreActions::AddTimeout(
+    pub async fn add_timeout(&mut self, timer_id: TimerId, timeout_secs: u64) {
+        log::trace!(
+            "add timeout, id: {:?}, deadline: {:?}",
             timer_id,
-            timeout_secs,
-        ));
+            timeout_secs
+        );
+        self.interface.interface.add_or_update_timeout(timer_id, timeout_secs).await;
     }
 
-    pub fn remove_timeout(&mut self, timer_id: TimerId) {
-        self.queued_actions
-            .push_back(CoreActions::RemoveTimeout(timer_id));
+    pub async fn remove_timeout(&mut self, timer_id: TimerId) {
+        log::trace!("remove timeout, id: {:?}", timer_id);
+        self.interface.interface.remove_timeout(timer_id).await;
     }
 
     pub fn soft_reset(&mut self) {
-        self.queued_actions.push_back(CoreActions::SoftReset);
+        log::warn!("soft reset");
+        self.soft_reset_now = true;
     }
 }

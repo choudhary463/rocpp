@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::data_transfer::{DataTransferRequest, DataTransferResponse},
@@ -7,18 +7,16 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    cp::core::ChargePointCore,
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn data_transfer_ocpp(&mut self, unique_id: String, _req: DataTransferRequest) {
+
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn data_transfer_ocpp(&mut self, unique_id: String, _req: DataTransferRequest) {
         let payload = DataTransferResponse {
             status: DataTransferStatus::Rejected,
             data: None,
         };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
     }
 }

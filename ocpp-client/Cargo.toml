@@ -1,39 +1,25 @@
 [package]
-name = "ocpp_client"
-version = "0.1.0"
+name = "rocpp_client"
+version = "1.0.0"
 edition = "2021"
+description = "OCPP client in Rust (no_std)"
+readme = "README.md"
+repository = "https://github.com/choudhary463/rocpp"
 
 [dependencies]
-ocpp_core = { path = "../ocpp-core" }
+rocpp_core = { path = "../ocpp-core" }
 serde = { version = "1", default-features = false, features = ["derive"] }
 serde_json = { version = "1", default-features = false, features = ["alloc"] }
 chrono = { version = "0.4.41", default-features = false, features = ["serde"] }
 rand = { version = "0.9.1", default-features = false, features = ["small_rng"] }
 log = "0.4"
-async-trait = { version = "0.1.88", optional = true }
-futures = { version = "0.3.31", default-features = false, features = ["alloc"], optional = true }
-flume = {version = "0.11.1", optional = true }
-tokio = { version = "1", optional = true, features = ["time"] }
-tokio-util = { version = "0.7.15", optional = true }
-async_ftp = { version = "=6.0.0", optional = true }
-regex = { version = "1.11.1", optional = true }
-tokio-tungstenite = { version = "0.26.2", optional = true }
-anyhow = { version = "1.0", optional = true }
-futures-util = { version = "0.3", optional = true }
 
 [features]
 default = []
-async = ["async-trait", "futures"]
-std = []
-flume_peripheral = ["async", "std", "flume"]
-tokio_timer = ["async", "std", "tokio"]
-tokio_shutdown = ["async", "std", "tokio-util"]
-ftp_transfer = ["async", "std", "tokio", "async_ftp", "regex", "anyhow"]
-tokio_ws = ["async", "std", "tokio-tungstenite", "futures-util"]
 
 
 [dev-dependencies]
-ocpp_client = { path = ".", features = ["flume_peripheral", "tokio_timer", "tokio_shutdown"] }
+rocpp_client = { path = "." }
 serde_json = "1.0.140"
 flume = "0.11.1"
 tokio = { version = "1", features = ["full"] }
@@ -44,3 +30,4 @@ anyhow = "1.0.98"
 rand = "0.9.1"
 uuid = { version = "1.17.0", features = ["v4"] }
 uptime_lib = "0.3.1"
+futures = "0.3.31"

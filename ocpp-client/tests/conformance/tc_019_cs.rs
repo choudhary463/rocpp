@@ -1,5 +1,5 @@
 use anyhow::anyhow;
-use ocpp_core::v16::{
+use rocpp_core::v16::{
     messages::get_configuration::{GetConfigurationRequest, GetConfigurationResponse},
     protocol_error::ProtocolError,
 };

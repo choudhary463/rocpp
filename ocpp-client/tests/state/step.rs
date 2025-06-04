@@ -1,4 +1,4 @@
-use ocpp_client::v16::{PeripheralActions, SeccState};
+use rocpp_client::v16::{HardwareEvent, SeccState};
 use serde::Serialize;
 use std::{path::PathBuf, time::Duration};
 
@@ -11,8 +11,7 @@ use crate::{
 };
 
 use super::{
-    any_order::AnyOrder, measure::Measure, operation::Operation, optional::Optional,
-    timestamp::WithNowTimestamp,
+    any_order::AnyOrder, either::Either, measure::Measure, operation::Operation, optional::Optional, timestamp::WithNowTimestamp
 };
 
 pub enum StepResult {
@@ -45,6 +44,7 @@ pub enum TestKind {
     Optional(usize),
     Operation(Box<dyn FnOnce(&mut CpHarness) + Send>),
     Combine(usize),
+    Either
 }
 
 impl std::fmt::Debug for TestKind {
@@ -56,6 +56,7 @@ impl std::fmt::Debug for TestKind {
             TestKind::Optional(i) => f.debug_tuple("Optional").field(i).finish(),
             TestKind::Operation(_) => f.write_str("Operation(<FnOnce>)"),
             TestKind::Combine(i) => f.debug_tuple("Combine").field(i).finish(),
+            TestKind::Either => f.debug_tuple("Either").finish(),
         }
     }
 }
@@ -77,6 +78,12 @@ impl TestChain {
 
     pub fn merge(mut self, mut other: Self) -> Self {
         self.list.append(&mut other.list);
+        self
+    }
+
+    pub fn merge_into_one(mut self, other: Self) -> Self {
+        let state = Self::build(other);
+        self.list.push(TestKind::State(state));
         self
     }
 
@@ -102,6 +109,11 @@ impl TestChain {
 
     pub fn combine(mut self, num: usize) -> Self {
         self.list.push(TestKind::Combine(num));
+        self
+    }
+
+    pub fn either(mut self) -> Self {
+        self.list.push(TestKind::Either);
         self
     }
 
@@ -150,6 +162,11 @@ impl TestChain {
                     let last_list = res.split_off(len);
                     res.push(Box::new(Combined::new(Self::chain(last_list))));
                 }
+                TestKind::Either => {
+                    let b = res.pop().unwrap();
+                    let a = res.pop().unwrap();
+                    res.push(Box::new(Either::new(a, b)));
+                }
             }
         }
         Self::chain(res)
@@ -168,6 +185,7 @@ impl TestChain {
                 tokio::task::yield_now().await;
                 match st.on_start(&mut h) {
                     StartResult::Done => {
+                        h.stop_token.cancel();
                         return;
                     }
                     StartResult::Next(next) => {
@@ -190,8 +208,14 @@ impl TestChain {
                 StepResult::Next(nxt) => {
                     st = nxt;
                 }
-                StepResult::Done => return,
-                StepResult::Fail(msg) => panic!("{:?}", msg),
+                StepResult::Done => {
+                    h.stop_token.cancel();
+                    return
+                },
+                StepResult::Fail(msg) => {
+                    h.stop_token.cancel();
+                    panic!("{:?}", msg);
+                },
             }
             tokio::task::yield_now().await;
         }
@@ -227,9 +251,8 @@ impl TestChain {
     }
     pub fn plug(self, connector_id: usize) -> Self {
         self.operation(move |t| {
-            log::info!("Sent hardware action! {:?}", t.peripheral_tx);
-            t.peripheral_tx
-                .send(PeripheralActions::State(
+            t.hardware_tx
+                .send(HardwareEvent::State(
                     connector_id - 1,
                     SeccState::Plugged,
                     None,
@@ -240,8 +263,8 @@ impl TestChain {
     }
     pub fn unplug(self, connector_id: usize) -> Self {
         self.operation(move |t| {
-            t.peripheral_tx
-                .send(PeripheralActions::State(
+            t.hardware_tx
+                .send(HardwareEvent::State(
                     connector_id - 1,
                     SeccState::Unplugged,
                     None,
@@ -252,8 +275,8 @@ impl TestChain {
     }
     pub fn faulty(self, connector_id: usize) -> Self {
         self.operation(move |t| {
-            t.peripheral_tx
-                .send(PeripheralActions::State(
+            t.hardware_tx
+                .send(HardwareEvent::State(
                     connector_id - 1,
                     SeccState::Faulty,
                     None,
@@ -264,8 +287,8 @@ impl TestChain {
     }
     pub fn present_id_tag(self, connector_id: usize, id_tag: String) -> Self {
         self.operation(move |t| {
-            t.peripheral_tx
-                .send(PeripheralActions::IdTag(connector_id - 1, id_tag))
+            t.hardware_tx
+                .send(HardwareEvent::IdTag(connector_id - 1, id_tag))
                 .unwrap();
         })
     }
@@ -370,6 +393,11 @@ macro_rules! test_chain {
         test_chain!($start.merge($n) $(, $($rest)*)? )
     };
 
+    // merger_into_one(num)
+    ($start:expr, merge_into_one($n:expr) $(, $($rest:tt)*)? ) => {
+        test_chain!($start.merge_into_one($n) $(, $($rest)*)? )
+    };
+
     // any_order(num)
     ($start:expr, any_order($n:expr) $(, $($rest:tt)*)? ) => {
         test_chain!($start.any_order($n) $(, $($rest)*)? )
@@ -378,6 +406,11 @@ macro_rules! test_chain {
     // optional(num)
     ($start:expr, optional($n:expr) $(, $($rest:tt)*)? ) => {
         test_chain!($start.optional($n) $(, $($rest)*)? )
+    };
+
+    // either()
+    ($start:expr, either() $(, $($rest:tt)*)? ) => {
+        test_chain!($start.either() $(, $($rest)*)? )
     };
 
     // with_timing(tol, t)

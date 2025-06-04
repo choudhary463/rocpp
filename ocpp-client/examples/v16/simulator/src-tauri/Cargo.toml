@@ -1,18 +1,20 @@
-[package]
-name = "simulator"
-version = "0.0.0"
-description = "A Tauri App"
-authors = ["you"]
-edition = "2021"
+[workspace]
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[package]
+name = "charger_simulator_ocpp_v16"
+version = "1.0.0"
+description = "Charger Simulator OCPP 1.6"
+authors = ["Anmol Choudhary"]
+edition = "2021"
+readme = "README.md"
+license = "MIT"
 
 [build-dependencies]
 tauri-build = { version = "1", features = [] }
 
 [dependencies]
-ocpp_client = { path = "../../../..", features = ["flume_peripheral", "tokio_timer", "tokio_shutdown", "ftp_transfer", "tokio_ws"] }
-ocpp_core = { path = "../../../../../ocpp-core" }
+rocpp_client = { path = "../../../.." }
+rocpp_core = { path = "../../../../../ocpp-core" }
 tauri = { version = "1", features = ["shell-open"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
@@ -31,6 +33,7 @@ log = "0.4"
 url = "2.5.4"
 uptime_lib = "0.3.1"
 rand = "0.9.1"
+futures = { version = "0.3.31", default-features = false, features = ["alloc"] }
 
 [features]
 # This feature is used for production builds or when a dev server is not specified, DO NOT REMOVE!!

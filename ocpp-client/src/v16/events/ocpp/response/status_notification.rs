@@ -1,11 +1,9 @@
-use ocpp_core::v16::messages::status_notification::StatusNotificationResponse;
+use rocpp_core::v16::messages::status_notification::StatusNotificationResponse;
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    cp::core::{ChargePointCore, OcppError},
-};
+use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::ChargePointInterface};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
+
+impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) fn status_notification_response(
         &mut self,
         res: Result<StatusNotificationResponse, OcppError>,

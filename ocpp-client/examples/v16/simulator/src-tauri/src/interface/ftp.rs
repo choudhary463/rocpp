@@ -2,7 +2,6 @@ use std::time::Duration;
 
 use anyhow::anyhow;
 use async_ftp::FtpStream;
-use chrono::{DateTime, Utc};
 use regex::Regex;
 use tokio::io::AsyncReadExt;
 
@@ -17,8 +16,6 @@ impl FtpService {
     pub async fn upload(
         &self,
         file_name: String,
-        start_time: Option<DateTime<Utc>>,
-        stop_time: Option<DateTime<Utc>>,
     ) -> anyhow::Result<()> {
         tokio::time::sleep(Duration::from_secs(2)).await;
         match self.get_ftp_stream().await {
@@ -27,8 +24,7 @@ impl FtpService {
                     ftp_stream.cwd(&path).await?;
                 }
                 let mut res = format!("LOGS START -----------\n");
-                res += format!("start_time: {:?}\n", start_time).as_str();
-                res += format!("stop_time: {:?}\n", stop_time).as_str();
+                // add custom logic
                 res += "LOGS END -----------";
                 let mut cursor = std::io::Cursor::new(res.as_bytes());
                 ftp_stream

@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::change_configuration::{ChangeConfigurationRequest, ChangeConfigurationResponse},
@@ -7,26 +7,21 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    drivers::database::ChargePointStorage,
-    state_machine::{config::OcppConfig},
-    cp::core::ChargePointCore
-};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointBackend, ChargePointInterface}, state_machine::config::OcppConfig};
 
 macro_rules! gen_update_ocpp_match {
     ($this:ident, $key:expr, { $($key_str:literal => $field:ident),+ }, $raw:expr) => {
         match $key {
             $(
-                $key_str => $this.config_update_helper(|s| (&mut s.configs.$field, &mut s.db), $raw),
+                $key_str => $this.config_update_helper(|s| (&mut s.configs.$field, &mut s.interface), $raw).await,
             )+
             _ => Err(ConfigurationStatus::NotSupported)
         }
     };
 }
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn change_configuration_ocpp(
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn change_configuration_ocpp(
         &mut self,
         unique_id: String,
         req: ChangeConfigurationRequest,
@@ -44,11 +39,11 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
 
         let payload = ChangeConfigurationResponse { status };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
     }
-    fn config_update_helper<T>(
+    async fn config_update_helper<T>(
         &mut self,
-        accessor: fn(&mut Self) -> (&mut OcppConfig<T>, &mut ChargePointStorage<D>),
+        accessor: fn(&mut Self) -> (&mut OcppConfig<T>, &mut ChargePointBackend<I>),
         raw: String,
     ) -> Result<bool, ConfigurationStatus> {
         let (cfg_ref, db) = accessor(self);
@@ -60,7 +55,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                 .then_some(())
                 .ok_or(ConfigurationStatus::Rejected)?;
         }
-        cfg_ref.update_with_raw(new_val, raw, db);
+        cfg_ref.update_with_raw(new_val, raw, db).await;
         Ok(cfg_ref.reboot_required)
     }
 }

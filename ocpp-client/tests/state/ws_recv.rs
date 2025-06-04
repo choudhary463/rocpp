@@ -1,7 +1,7 @@
 use std::{fmt::Debug, time::Duration};
 
 use anyhow::anyhow;
-use ocpp_core::v16::protocol_error::ProtocolError;
+use rocpp_core::v16::protocol_error::ProtocolError;
 
 use crate::harness::{
     event::{ConnectionEvents, Event},

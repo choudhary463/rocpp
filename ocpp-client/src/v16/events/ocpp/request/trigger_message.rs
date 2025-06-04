@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::trigger_message::{TriggerMessageRequest, TriggerMessageResponse},
@@ -7,13 +7,11 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    cp::core::ChargePointCore,
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn trigger_message_ocpp(&mut self, unique_id: String, req: TriggerMessageRequest) {
+
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn trigger_message_ocpp(&mut self, unique_id: String, req: TriggerMessageRequest) {
         let valid_connector_id = req
             .connector_id
             .map(|f| f <= self.configs.number_of_connectors.value)
@@ -33,29 +31,29 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         };
         let payload = TriggerMessageResponse { status };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
 
         if valid_connector_id && valid_message {
             match req.requested_message {
                 MessageTrigger::BootNotification => {
-                    self.trigger_boot();
+                    self.trigger_boot().await;
                 }
                 MessageTrigger::DiagnosticsStatusNotification => {
-                    self.trigger_diagnostics_status_notification();
+                    self.trigger_diagnostics_status_notification().await;
                 }
                 MessageTrigger::FirmwareStatusNotification => {
-                    self.trigger_firmware_status_notification();
+                    self.trigger_firmware_status_notification().await;
                 }
                 MessageTrigger::Heartbeat => {
-                    self.trigger_heartbeat();
+                    self.trigger_heartbeat().await;
                 }
                 MessageTrigger::MeterValues => {
                     let connector_id = req.connector_id.unwrap();
-                    self.trigger_meter_values(connector_id);
+                    self.trigger_meter_values(connector_id).await;
                 }
                 MessageTrigger::StatusNotification => {
                     let connector_id = req.connector_id.unwrap();
-                    self.trigger_status_notification(connector_id);
+                    self.trigger_status_notification(connector_id).await;
                 }
             }
         }

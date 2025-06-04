@@ -1,5 +1,5 @@
 use chrono::{Months, Utc};
-use ocpp_core::v16::{
+use rocpp_core::v16::{
     messages::{
         change_availability::{ChangeAvailabilityRequest, ChangeAvailabilityResponse},
         reserve_now::{ReserveNowRequest, ReserveNowResponse},

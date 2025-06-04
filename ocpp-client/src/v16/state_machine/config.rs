@@ -2,9 +2,9 @@ use core::str::FromStr;
 
 use alloc::{boxed::Box, format, string::{String, ToString}, vec::Vec};
 
-use ocpp_core::v16::types::{Measurand, Phase};
+use rocpp_core::v16::types::{Measurand, Phase};
 
-use crate::v16::drivers::{database::{ChargePointStorage, Database}, hardware_interface::MeterDataType};
+use crate::v16::interfaces::{ChargePointBackend, ChargePointInterface, MeterDataType};
 
 pub(crate) struct OcppConfig<T> {
     pub key: String,
@@ -64,19 +64,19 @@ impl<T> OcppConfig<T> {
         self.reboot_required = true;
         self
     }
-    pub fn update<D: Database>(&mut self, value: T, database: &mut ChargePointStorage<D>) {
+    pub async fn update<I: ChargePointInterface>(&mut self, value: T, interface: &mut ChargePointBackend<I>) {
         let raw = (self.format_fn)(&value);
-        database.db_update_config(self.key.clone(), raw.clone());
+        interface.db_update_config(&self.key, &raw).await;
         self.raw = raw;
         self.value = value;
     }
-    pub fn update_with_raw<D: Database>(
+    pub async fn update_with_raw<I: ChargePointInterface>(
         &mut self,
         value: T,
         raw: String,
-        database: &mut ChargePointStorage<D>,
+        interface: &mut ChargePointBackend<I>,
     ) {
-        database.db_update_config(self.key.clone(), raw.clone());
+        interface.db_update_config(&self.key, &raw).await;
         if !self.reboot_required {
             self.raw = raw;
             self.value = value;
@@ -236,10 +236,10 @@ impl OcppConfigs {
             unlock_connector_on_evside_disconnect: OcppConfig::<bool>::new().with_std().read(),
         }
     }
-    pub fn build(db_configs: Vec<(String, String)>) -> Self {
+    pub fn build(db_configs: Vec<(&str, &str)>) -> Self {
         let mut config = Self::new();
         for (key, value) in db_configs {
-            let key = key.as_str();
+            let value = value.to_string();
             config_key_map!(gen_update_match, config, key, value)
         }
         config

@@ -1,14 +1,13 @@
 {
-    "cms_url": "ws://86b3-2401-4900-8899-e538-79ce-5235-4827-6744.ngrok-free.app/steve/websocket/CentralSystemService/CP0",
+    "cms_url": "ws://localhost:8180/steve/websocket/CentralSystemService/CP0",
     "call_timeout": 5,
-    "max_cache_len": 100,
     "clear_db": false,
     "seed": 0,
     "boot_info": {
       "chargeBoxSerialNumber": null,
       "chargePointModel": "SIMULATOR-01",
       "chargePointSerialNumber": null,
-      "chargePointVendor": "RODNEV",
+      "chargePointVendor": "ROCPP",
       "firmwareVersion": null,
       "iccid": null,
       "imsi": null,

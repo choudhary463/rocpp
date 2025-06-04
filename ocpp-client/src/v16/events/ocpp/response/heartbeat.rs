@@ -1,20 +1,15 @@
-use ocpp_core::v16::messages::heart_beat::HeartbeatResponse;
+use rocpp_core::v16::messages::heart_beat::HeartbeatResponse;
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    state_machine::{
-        heartbeat::HeartbeatState,
-    },
-    cp::core::{ChargePointCore, OcppError},
-};
+use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::ChargePointInterface, state_machine::heartbeat::HeartbeatState};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn heartbeat_response(&mut self, res: Result<HeartbeatResponse, OcppError>) {
+
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn heartbeat_response(&mut self, res: Result<HeartbeatResponse, OcppError>) {
         match res {
             Ok(t) => {
-                self.set_time(t.current_time);
+                self.set_time(t.current_time).await;
                 if let HeartbeatState::WaitingForResponse = &self.heartbeat_state {
-                    self.set_sleep_heartbeat();
+                    self.set_sleep_heartbeat().await;
                 }
             }
             Err(e) => {

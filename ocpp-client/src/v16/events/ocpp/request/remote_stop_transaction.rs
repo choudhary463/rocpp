@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::remote_stop_transaction::{
@@ -9,13 +9,11 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    cp::core::ChargePointCore,
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn remote_stop_transaction_ocpp(
+
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn remote_stop_transaction_ocpp(
         &mut self,
         unique_id: String,
         req: RemoteStopTransactionRequest,
@@ -32,10 +30,10 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         };
         let payload = RemoteStopTransactionResponse { status };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
 
         if let Some(connector_id) = connector_id {
-            self.stop_transaction(connector_id, None, Some(Reason::Remote));
+            self.stop_transaction(connector_id, None, Some(Reason::Remote)).await;
         }
     }
 }

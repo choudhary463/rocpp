@@ -8,15 +8,14 @@ use std::{
 };
 
 use futures::task::AtomicWaker;
-use ocpp_client::v16::WebsocketTransport;
-use ocpp_core::{
+use rocpp_client::v16::{Websocket, WsEvent};
+use rocpp_core::{
     format::{
         frame::{Call, CallError, CallResult},
         message::{CallResponse, EncodeDecode, OcppMessage},
     },
     v16::protocol_error::ProtocolError,
 };
-use tokio::sync::Notify;
 
 use super::event::{ConnectionEvents, Event, EventTx};
 
@@ -28,11 +27,14 @@ struct Inner {
     waker: AtomicWaker,
     last_call_uid_to_cp: Mutex<Option<String>>,
     last_call_uid_from_cp: Mutex<Option<String>>,
-    notify: Mutex<Option<Arc<Notify>>>,
+    is_server_up: AtomicBool,
+    pending_conn: Mutex<Option<String>>,
+    connected_res: Mutex<Option<()>>,
+    disconnect_res: Mutex<Option<()>>
 }
 
 pub struct MockWs {
-    inner: Arc<Inner>,
+    inner: Arc<Inner>
 }
 
 impl MockWs {
@@ -44,7 +46,10 @@ impl MockWs {
             waker: AtomicWaker::new(),
             last_call_uid_to_cp: Default::default(),
             last_call_uid_from_cp: Default::default(),
-            notify: Mutex::new(None),
+            is_server_up: AtomicBool::new(true),
+            pending_conn: Mutex::new(None),
+            connected_res: Mutex::new(None),
+            disconnect_res: Mutex::new(None)
         });
         (
             Self {
@@ -55,22 +60,23 @@ impl MockWs {
     }
 }
 
-#[async_trait::async_trait]
-impl WebsocketTransport for MockWs {
-    async fn connect(&mut self, url: String) {
+impl Websocket for MockWs {
+    async fn ws_connect(&mut self, url: String) {
         log::info!("connecting.......");
-        let maybe_notify = { self.inner.notify.lock().unwrap().as_ref().cloned() };
-        if let Some(notify) = maybe_notify {
-            notify.notified().await;
+        if !self.inner.is_server_up.load(Ordering::Acquire) {
+            self.inner.pending_conn.lock().unwrap().replace(url);
+            log::info!("server down, will connected when up");
+            return;
         }
         log::info!("connected");
         self.inner
             .event_tx
             .push(Event::Connection(ConnectionEvents::Connected(url)));
         self.inner.is_connected.store(true, Ordering::Release);
+        self.inner.connected_res.lock().unwrap().replace(());
     }
 
-    async fn send(&mut self, raw: String) {
+    async fn ws_send(&mut self, raw: String) {
         let event = match OcppMessage::decode(raw.clone()) {
             OcppMessage::Call(call) => {
                 self.inner
@@ -102,29 +108,36 @@ impl WebsocketTransport for MockWs {
         self.inner.event_tx.push(event);
     }
 
-    fn poll_recv(&mut self, cx: &mut Context<'_>) -> Poll<Option<String>> {
-        if !self.inner.is_connected.load(Ordering::Acquire) {
-            return Poll::Ready(None);
+    fn poll_ws_recv(&mut self, cx: &mut Context<'_>) -> Poll<WsEvent> {
+        if self.inner.connected_res.lock().unwrap().take().is_some() {
+            return Poll::Ready(WsEvent::Connected);
+        }
+        if self.inner.disconnect_res.lock().unwrap().take().is_some() {
+            return Poll::Ready(WsEvent::Disconnected);
         }
         if let Some(msg) = self.inner.inbox.lock().unwrap().pop_front() {
-            return Poll::Ready(Some(msg));
+            return Poll::Ready(WsEvent::Msg(msg));
         }
         self.inner.waker.register(cx.waker());
-        if !self.inner.is_connected.load(Ordering::Acquire) {
-            return Poll::Ready(None);
+        if self.inner.connected_res.lock().unwrap().take().is_some() {
+            return Poll::Ready(WsEvent::Connected);
+        }
+        if self.inner.disconnect_res.lock().unwrap().take().is_some() {
+            return Poll::Ready(WsEvent::Disconnected);
         }
         if let Some(msg) = self.inner.inbox.lock().unwrap().pop_front() {
-            return Poll::Ready(Some(msg));
+            return Poll::Ready(WsEvent::Msg(msg));
         }
         Poll::Pending
     }
 
-    async fn close(&mut self) {
+    async fn ws_close(&mut self) {
         self.inner.is_connected.store(false, Ordering::Release);
         self.inner.inbox.lock().unwrap().clear();
         self.inner
             .event_tx
             .push(Event::Connection(ConnectionEvents::Disconnected));
+        self.inner.disconnect_res.lock().unwrap().replace(());
     }
 }
 
@@ -135,19 +148,26 @@ pub struct MockWsHandle {
 
 impl MockWsHandle {
     pub fn close_connection(&self) {
-        assert!(self.inner.is_connected.load(Ordering::Acquire));
+        assert!(self.inner.is_server_up.load(Ordering::Acquire));
         self.inner.is_connected.store(false, Ordering::Release);
         self.inner.inbox.lock().unwrap().clear();
-        *self.inner.notify.lock().unwrap() = Some(Arc::new(Notify::new()));
+        self.inner.is_server_up.store(false, Ordering::Release);
         self.inner
             .event_tx
             .push(Event::Connection(ConnectionEvents::Disconnected));
+        self.inner.disconnect_res.lock().unwrap().replace(());
         self.inner.waker.wake();
     }
     pub fn restore_connection(&self) {
-        assert!(!self.inner.is_connected.load(Ordering::Acquire));
-        if let Some(notify) = self.inner.notify.lock().unwrap().take() {
-            notify.notify_one();
+        assert!(!self.inner.is_server_up.load(Ordering::Acquire));
+        self.inner.is_server_up.store(true, Ordering::Release);
+        if let Some(url) = self.inner.pending_conn.lock().unwrap().take() {
+            self.inner
+            .event_tx
+            .push(Event::Connection(ConnectionEvents::Connected(url)));
+            self.inner.is_connected.store(true, Ordering::Release);
+            self.inner.connected_res.lock().unwrap().replace(());
+            self.inner.waker.wake();
         }
     }
     pub fn inject(&self, msg: String) {

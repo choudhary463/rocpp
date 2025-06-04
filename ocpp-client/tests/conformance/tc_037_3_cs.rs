@@ -1,4 +1,4 @@
-use ocpp_core::v16::{
+use rocpp_core::v16::{
     messages::{
         send_local_list::{SendLocalListRequest, SendLocalListResponse},
         start_transaction::{StartTransactionRequest, StartTransactionResponse},
@@ -66,6 +66,7 @@ pub async fn run() {
             status: ChargePointStatus::Charging
         }),
         respond(StatusNotificationResponse {}),
+        any_order(2),
         await_ws_msg(StopTransactionRequest {
             transaction_id: transaction_id,
             reason: Some(Reason::DeAuthorized)
@@ -76,6 +77,7 @@ pub async fn run() {
             status: ChargePointStatus::Finishing
         }),
         respond(StatusNotificationResponse {}),
+        any_order(2),
     );
 
     chain

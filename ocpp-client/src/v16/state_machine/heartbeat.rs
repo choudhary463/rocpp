@@ -1,8 +1,6 @@
-use ocpp_core::v16::messages::heart_beat::HeartbeatRequest;
+use rocpp_core::v16::messages::heart_beat::HeartbeatRequest;
 
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}
-};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}};
 
 use super::call::CallAction;
 
@@ -12,24 +10,24 @@ pub(crate) enum HeartbeatState {
     WaitingForResponse,
 }
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn set_sleep_heartbeat(&mut self) {
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn set_sleep_heartbeat(&mut self) {
         let interval = if self.configs.heartbeat_interval.value == 0 {
             2
         } else {
             self.configs.heartbeat_interval.value
         };
-        self.add_timeout(TimerId::Heartbeat, interval);
+        self.add_timeout(TimerId::Heartbeat, interval).await;
         self.heartbeat_state = HeartbeatState::Sleeping;
     }
-    pub(crate) fn send_heartbeat(&mut self) {
-        self.enqueue_call(CallAction::Heartbeat, HeartbeatRequest {});
+    pub(crate) async fn send_heartbeat(&mut self) {
+        self.enqueue_call(CallAction::Heartbeat, HeartbeatRequest {}).await;
         self.heartbeat_state = HeartbeatState::WaitingForResponse;
     }
-    pub(crate) fn heartbeat_activity(&mut self) {
+    pub(crate) async fn heartbeat_activity(&mut self) {
         match &self.heartbeat_state {
             HeartbeatState::Sleeping => {
-                self.set_sleep_heartbeat();
+                self.set_sleep_heartbeat().await;
             }
             HeartbeatState::WaitingForResponse => {
                 // already sent, will reset timer once response is received
@@ -39,10 +37,10 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             }
         }
     }
-    pub(crate) fn on_heartbeat_online(&mut self) {
+    pub(crate) async fn on_heartbeat_online(&mut self) {
         match &self.heartbeat_state {
             HeartbeatState::Idle => {
-                self.set_sleep_heartbeat();
+                self.set_sleep_heartbeat().await;
             }
             _ => {
                 // heartbet state must be idle in offline state
@@ -50,10 +48,10 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             }
         }
     }
-    pub(crate) fn on_heartbeat_offline(&mut self) {
+    pub(crate) async fn on_heartbeat_offline(&mut self) {
         match &self.heartbeat_state {
             HeartbeatState::Sleeping => {
-                self.remove_timeout(TimerId::Heartbeat);
+                self.remove_timeout(TimerId::Heartbeat).await;
             }
             HeartbeatState::Idle => {}
             _ => {
@@ -63,14 +61,14 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         }
         self.heartbeat_state = HeartbeatState::Idle;
     }
-    pub(crate) fn trigger_heartbeat(&mut self) {
+    pub(crate) async fn trigger_heartbeat(&mut self) {
         match &self.heartbeat_state {
             HeartbeatState::Idle => {
-                self.enqueue_call(CallAction::Heartbeat, HeartbeatRequest {});
+                self.enqueue_call(CallAction::Heartbeat, HeartbeatRequest {}).await;
             }
             HeartbeatState::Sleeping => {
-                self.remove_timeout(TimerId::Heartbeat);
-                self.send_heartbeat();
+                self.remove_timeout(TimerId::Heartbeat).await;
+                self.send_heartbeat().await;
             }
             HeartbeatState::WaitingForResponse => {
                 // already sent

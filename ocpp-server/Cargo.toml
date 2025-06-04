@@ -1,6 +1,9 @@
 [package]
-name = "ocpp-server"
+name = "rocpp_server"
 version = "0.1.0"
 edition = "2021"
+description = "OCPP server in Rust"
+readme = "README.md"
+repository = "https://github.com/choudhary463/rocpp"
 
 [dependencies]

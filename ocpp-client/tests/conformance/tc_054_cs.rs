@@ -1,5 +1,5 @@
 use chrono::Utc;
-use ocpp_core::v16::{
+use rocpp_core::v16::{
     messages::{
         diagnostics_status_notification::{
             DiagnosticsStatusNotificationRequest, DiagnosticsStatusNotificationResponse,

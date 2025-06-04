@@ -1,31 +1,29 @@
 use alloc::string::String;
-use ocpp_core::v16::types::{ChargePointErrorCode, Reason};
+use rocpp_core::v16::types::{ChargePointErrorCode, Reason};
 
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState, timers::TimerId}, state_machine::{auth::AuthorizeStatus, connector::ConnectorState}
-};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState, TimerId}, state_machine::{auth::AuthorizeStatus, connector::ConnectorState}};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub fn secc_id_tag_helper(&mut self, connector_id: usize, id_tag: String) {
-        match self.evaluate_id_tag_auth(id_tag, connector_id) {
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub async fn secc_id_tag(&mut self, connector_id: usize, id_tag: String) {
+        match self.evaluate_id_tag_auth(id_tag, connector_id).await {
             AuthorizeStatus::NotAuthorized => {}
             AuthorizeStatus::Authorized {
                 connector_id,
                 id_tag,
                 parent_id_tag,
             } => {
-                self.handle_id_tag_authorized(connector_id, id_tag, parent_id_tag);
+                self.handle_id_tag_authorized(connector_id, id_tag, parent_id_tag).await;
             }
             AuthorizeStatus::SendAuthorize {
                 connector_id,
                 id_tag,
             } => {
-                self.send_authorize_request(connector_id, id_tag);
+                self.send_authorize_request(connector_id, id_tag).await;
             }
         };
     }
 
-    pub fn secc_change_state_helper(
+    pub async fn secc_change_state(
         &mut self,
         connector_id: usize,
         state: SeccState,
@@ -41,7 +39,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                             ConnectorState::plugged(),
                             error_code,
                             info,
-                        );
+                        ).await;
                     }
                     SeccState::Unplugged => {
                         // idle -> Unplugged ??
@@ -52,7 +50,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        );
+                        ).await;
                     }
                 }
             }
@@ -67,7 +65,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                             ConnectorState::idle(),
                             error_code,
                             info,
-                        );
+                        ).await;
                     }
                     SeccState::Faulty => {
                         self.change_connector_state_with_error_code(
@@ -75,7 +73,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        );
+                        ).await;
                     }
                 }
             }
@@ -89,20 +87,20 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                         let id_tag = id_tag.clone();
                         let parent_id_tag = parent_id_tag.clone();
                         let reservation_id = *reservation_id;
-                        self.remove_timeout(TimerId::Authorize(connector_id));
-                        self.start_transaction(connector_id, id_tag, parent_id_tag, reservation_id);
+                        self.remove_timeout(TimerId::Authorize(connector_id)).await;
+                        self.start_transaction(connector_id, id_tag, parent_id_tag, reservation_id).await;
                     }
                     SeccState::Unplugged => {
                         // Authorized + Unplugged ??
                     }
                     SeccState::Faulty => {
-                        self.remove_timeout(TimerId::Authorize(connector_id));
+                        self.remove_timeout(TimerId::Authorize(connector_id)).await;
                         self.change_connector_state_with_error_code(
                             connector_id,
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        );
+                        ).await;
                     }
                 }
             }
@@ -125,12 +123,12 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                         ),
                         error_code,
                         info,
-                    );
+                    ).await;
                     self.stop_transaction(
                         connector_id,
                         None,
                         Some(Reason::EVDisconnected),
-                    );
+                    ).await;
                     return;
                 }
                 self.change_connector_state_with_error_code(
@@ -144,7 +142,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                     ),
                     error_code,
                     info,
-                );
+                ).await;
             }
             ConnectorState::Finishing => {
                 match state {
@@ -157,7 +155,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                             ConnectorState::idle(),
                             error_code,
                             info,
-                        );
+                        ).await;
                     }
                     SeccState::Faulty => {
                         self.change_connector_state_with_error_code(
@@ -165,7 +163,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        );
+                        ).await;
                     }
                 }
             }
@@ -183,13 +181,13 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                         false
                     }
                     SeccState::Faulty => {
-                        self.remove_reservation(connector_id, *reservation_id);
+                        self.remove_reservation(connector_id, *reservation_id).await;
                         self.change_connector_state_with_error_code(
                             connector_id,
                             ConnectorState::faulty(),
                             error_code,
                             info,
-                        );
+                        ).await;
                         return;
                     }
                 };
@@ -203,7 +201,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                     ),
                     error_code,
                     info,
-                );
+                ).await;
             }
             ConnectorState::Unavailable(_) => {
                 self.change_connector_state_with_error_code(
@@ -211,7 +209,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                     ConnectorState::Unavailable(state),
                     error_code,
                     info,
-                );
+                ).await;
             }
             ConnectorState::Faulty => match state {
                 SeccState::Plugged => {
@@ -220,7 +218,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                         ConnectorState::plugged(),
                         error_code,
                         info,
-                    );
+                    ).await;
                 }
                 SeccState::Unplugged => {
                     self.change_connector_state_with_error_code(
@@ -228,7 +226,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                         ConnectorState::idle(),
                         error_code,
                         info,
-                    );
+                    ).await;
                 }
                 SeccState::Faulty => {
                     self.change_connector_state_with_error_code(
@@ -236,7 +234,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                         ConnectorState::faulty(),
                         error_code,
                         info,
-                    );
+                    ).await;
                 }
             },
         }

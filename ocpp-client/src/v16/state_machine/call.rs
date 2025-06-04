@@ -1,5 +1,5 @@
 use alloc::{string::{String, ToString}, vec::Vec};
-use ocpp_core::{
+use rocpp_core::{
     format::{
         error::GenericError,
         frame::Call,
@@ -9,9 +9,7 @@ use ocpp_core::{
 };
 use serde::Serialize;
 
-use crate::v16::{
-    cp::core::{ChargePointCore, OcppError}, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId},
-};
+use crate::v16::{cp::{ChargePoint, OcppError}, interfaces::{ChargePointInterface, TimerId}};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Debug, PartialEq)]
 pub(crate) enum CallAction {
@@ -53,51 +51,51 @@ pub(crate) enum OutgoingCallState {
     },
 }
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn on_outgoing_offline(&mut self) {
-        self.handle_call_response(Err(OcppError::Other(GenericError::Offline)), false);
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn on_outgoing_offline(&mut self) {
+        self.handle_call_response(Err(OcppError::Other(GenericError::Offline)), false).await;
         let drained: Vec<_> = self.pending_calls.drain(..).collect();
         for (_, action) in drained {
-            self.dispatch_response(action, Err(OcppError::Other(GenericError::Offline)));
+            self.dispatch_response(action, Err(OcppError::Other(GenericError::Offline))).await;
         }
     }
 
-    pub(crate) fn enqueue_call<T: Serialize>(&mut self, action: CallAction, payload: T) {
+    pub(crate) async fn enqueue_call<T: Serialize>(&mut self, action: CallAction, payload: T) {
         let call = Call {
             unique_id: self.get_uuid(),
             action: action.to_string(),
             payload: serde_json::to_value(payload).unwrap(),
         };
         self.pending_calls.push_back((call, action));
-        self.process_call();
+        self.process_call().await;
     }
 
-    pub(crate) fn process_call(&mut self) {
+    pub(crate) async fn process_call(&mut self) {
         if let OutgoingCallState::Idle = self.outgoing_call_state {
             if let Some((call, action)) = self.pending_calls.pop_front() {
-                self.send_ws_msg(call.encode());
+                self.send_ws_msg(call.encode()).await;
                 self.outgoing_call_state = OutgoingCallState::WaitingForResponse {
                     unique_id: call.unique_id,
                     action,
                 };
-                self.add_timeout(TimerId::Call, self.call_timeout);
+                self.add_timeout(TimerId::Call, self.call_timeout).await;
             }
         }
     }
 
-    pub(crate) fn handle_call_response(
+    pub(crate) async fn handle_call_response(
         &mut self,
         res: Result<CallResponse<ProtocolError>, OcppError>,
         check_next: bool,
     ) {
         if let Some(res) = self.match_call_uid(res) {
-            self.remove_timeout(TimerId::Call);
+            self.remove_timeout(TimerId::Call).await;
             if let OutgoingCallState::WaitingForResponse { action, .. } =
                 core::mem::replace(&mut self.outgoing_call_state, OutgoingCallState::Idle)
             {
-                self.dispatch_response(action, res);
+                self.dispatch_response(action, res).await;
                 if check_next {
-                    self.process_call();
+                    self.process_call().await;
                 }
             }
         }
@@ -116,22 +114,22 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         })
         .and_then(|r| r)
     }
-    fn dispatch_response(&mut self, action: CallAction, res: Result<serde_json::Value, OcppError>) {
+    async fn dispatch_response(&mut self, action: CallAction, res: Result<serde_json::Value, OcppError>) {
         match action {
             CallAction::BootNotification => {
-                self.boot_notification_response(Self::parse_response(res))
+                self.boot_notification_response(Self::parse_response(res)).await
             }
-            CallAction::Heartbeat => self.heartbeat_response(Self::parse_response(res)),
-            CallAction::Authorize => self.authorized_response(Self::parse_response(res)),
+            CallAction::Heartbeat => self.heartbeat_response(Self::parse_response(res)).await,
+            CallAction::Authorize => self.authorized_response(Self::parse_response(res)).await,
             CallAction::StatusNotification => {
                 self.status_notification_response(Self::parse_response(res))
             }
             CallAction::StartTransaction => {
-                self.start_transaction_response(Self::parse_response(res))
+                self.start_transaction_response(Self::parse_response(res)).await
             }
-            CallAction::MeterValues => self.meter_values_response(Self::parse_response(res)),
+            CallAction::MeterValues => self.meter_values_response(Self::parse_response(res)).await,
             CallAction::StopTransaction => {
-                self.stop_transaction_response(Self::parse_response(res))
+                self.stop_transaction_response(Self::parse_response(res)).await
             }
             CallAction::DiagnosticsStatusNotification => {
                 self.diagnostics_status_notification_response(Self::parse_response(res))

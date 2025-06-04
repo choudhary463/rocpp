@@ -1,6 +1,6 @@
-use alloc::{collections::btree_set::BTreeSet, string::String, vec, vec::Vec};
+use alloc::{collections::btree_set::BTreeSet, string::String, vec::Vec};
 use chrono::{DateTime, Utc};
-use ocpp_core::v16::{
+use rocpp_core::v16::{
     messages::{
         meter_values::MeterValuesRequest, start_transaction::StartTransactionRequest,
         stop_transaction::StopTransactionRequest,
@@ -9,14 +9,14 @@ use ocpp_core::v16::{
 };
 use serde::Serialize;
 
-use crate::v16::{cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState}};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState}};
 
 use super::{
     call::CallAction, clock::Instant, connector::ConnectorState, firmware::FirmwareState
 };
 
 #[derive(Clone)]
-pub enum TransactionTime {
+pub(crate) enum TransactionTime {
     Unaligned(Instant),
     Known(DateTime<Utc>),
 }
@@ -47,7 +47,7 @@ impl<'de> serde::de::Deserialize<'de> for TransactionTime {
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub struct StartTransactionEvent {
+pub(crate) struct StartTransactionEvent {
     pub local_transaction_id: u32,
     pub connector_id: usize,
     pub id_tag: String,
@@ -57,7 +57,7 @@ pub struct StartTransactionEvent {
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub struct MeterValueLocal {
+pub(crate) struct MeterValueLocal {
     pub timestamp: TransactionTime,
     pub sampled_value: Vec<SampledValue>,
 }
@@ -72,14 +72,14 @@ impl MeterValueLocal {
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub struct MeterValuesEvent {
+pub(crate) struct MeterValuesEvent {
     pub connector_id: usize,
     pub local_transaction_id: Option<u32>,
     pub meter_value: Vec<MeterValueLocal>,
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub struct StopTransactionEvent {
+pub(crate) struct StopTransactionEvent {
     pub local_transaction_id: u32,
     pub id_tag: Option<String>,
     pub meter_stop: u64,
@@ -89,14 +89,14 @@ pub struct StopTransactionEvent {
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub enum TransactionEvent {
+pub(crate) enum TransactionEvent {
     Start(StartTransactionEvent),
     Meter(MeterValuesEvent),
     Stop(StopTransactionEvent),
 }
 
 #[derive(Clone)]
-pub enum TransactionEventState {
+pub(crate) enum TransactionEventState {
     Idle,
     Sleeping,
     WaitingForResponse,
@@ -115,8 +115,8 @@ impl TransactionEvent {
     }
 }
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn pop_event(
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn pop_event(
         &mut self,
         local_transaction_id: Option<u32>,
         transaction_id: Option<i32>,
@@ -138,28 +138,31 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             if meter_tx.is_some() {
                 self.transaction_map.remove(&local_transaction_id);
                 self.transaction_connector_map.remove(&local_transaction_id);
-                self.transaction_stop_meter_map
+                self.transaction_stop_meter_val_count
                     .remove(&local_transaction_id);
             }
         }
-        let _ = self.transaction_queue.pop_front();
-        self.db.db_pop_transaction_event(
+        self.interface.db_pop_transaction_event(
             self.transaction_tail,
             local_transaction_id,
             transaction_id,
             meter_tx,
-        );
+        ).await;
         self.transaction_tail += 1;
         self.transaction_event_state = TransactionEventState::Idle;
         self.transaction_event_retries = 0;
-        self.process_transaction();
+        if self.transaction_tail != self.transaction_head {
+            self.transacion_current_event = Some(self.interface.db_get_transaction_event(self.transaction_tail).await);
+        } else {
+            self.transacion_current_event = None;
+        }
     }
-    pub(crate) fn process_transaction(&mut self) {
+    pub(crate) async fn process_transaction(&mut self) {
         loop {
             if self.call_permission() {
                 if let (TransactionEventState::Idle, Some(tx)) = (
                     self.transaction_event_state.clone(),
-                    self.transaction_queue.front().cloned(),
+                    self.transacion_current_event.clone(),
                 ) {
                     match tx {
                         TransactionEvent::Start(t) => {
@@ -167,7 +170,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                                 TransactionEventState::WaitingForResponse;
                             self.transaction_event_retries += 1;
                             let req = self.get_start_transaction_request(t);
-                            self.enqueue_call(CallAction::StartTransaction, req);
+                            self.enqueue_call(CallAction::StartTransaction, req).await;
                         }
                         TransactionEvent::Meter(t) => {
                             match t.local_transaction_id.map_or(Ok(None), |key| {
@@ -181,12 +184,12 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                                         TransactionEventState::WaitingForResponse;
                                     self.transaction_event_retries += 1;
                                     let req = self.get_meter_values_request(t, transaction_id);
-                                    self.enqueue_call(CallAction::MeterValues, req);
+                                    self.enqueue_call(CallAction::MeterValues, req).await;
                                 }
                                 Err(_) => {
                                     //corresponsing transaction_id not found, droping
                                     assert!(self.transaction_event_retries == 0);
-                                    self.pop_event(t.local_transaction_id, None, None);
+                                    self.pop_event(t.local_transaction_id, None, None).await;
                                 }
                             }
                         }
@@ -198,16 +201,16 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                                     TransactionEventState::WaitingForResponse;
                                 self.transaction_event_retries += 1;
                                 let req = self.get_stop_transaction_request(t, *transaction_id);
-                                self.enqueue_call(CallAction::StopTransaction, req);
+                                self.enqueue_call(CallAction::StopTransaction, req).await;
                             } else {
                                 //corresponsing transaction_id not found, droping
                                 assert!(self.transaction_event_retries == 0);
                                 let meter_tx = self
-                                    .transaction_stop_meter_map
+                                    .transaction_stop_meter_val_count
                                     .get(&t.local_transaction_id)
-                                    .map(|f| f.len())
+                                    .map(|f| *f)
                                     .unwrap_or(0);
-                                self.pop_event(Some(t.local_transaction_id), None, Some(meter_tx));
+                                self.pop_event(Some(t.local_transaction_id), None, Some(meter_tx)).await;
                             }
                         }
                     }
@@ -219,56 +222,58 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             }
         }
     }
-    pub(crate) fn get_transaction_time(&self) -> TransactionTime {
-        if let Some(date) = self.get_time() {
+    pub(crate) async fn get_transaction_time(&self) -> TransactionTime {
+        if let Some(date) = self.get_time().await {
             TransactionTime::Known(date)
         } else {
-            TransactionTime::Unaligned(Instant::now(&self.hw))
+            TransactionTime::Unaligned(Instant::now(&self.interface).await)
         }
     }
-    pub(crate) fn add_transaction_event(&mut self, mut event: TransactionEvent) {
+    pub(crate) async fn add_transaction_event(&mut self, mut event: TransactionEvent) {
         match &mut event {
             TransactionEvent::Start(t) => {
                 self.transaction_connector_map
                     .insert(t.local_transaction_id, t.connector_id);
             }
             TransactionEvent::Stop(t) => {
-                t.transaction_data = self
-                    .transaction_stop_meter_map
-                    .get(&t.local_transaction_id)
-                    .cloned()
+                if let Some(len) = self.transaction_stop_meter_val_count.get(&t.local_transaction_id) {
+                    t.transaction_data = Some(self.interface.db_get_all_stop_meter_val(t.local_transaction_id, *len).await)
+                }
             }
             _ => {}
         }
-        self.transaction_queue.push_back(event.clone());
-        self.db
-            .db_push_transaction_event(self.transaction_head, event);
+        self.interface
+            .db_push_transaction_event(self.transaction_head, event).await;
+
         self.transaction_head += 1;
-        self.process_transaction();
+        if self.transacion_current_event.is_none() {
+            self.transacion_current_event = Some(self.interface.db_get_transaction_event(self.transaction_tail).await);
+        }
+        self.process_transaction().await;
     }
-    pub fn add_stop_transaction_meter_value(
+    pub(crate) async fn add_stop_transaction_meter_value(
         &mut self,
         local_transaction_id: u32,
         values: MeterValueLocal,
     ) {
         let index = if let Some(data) = self
-            .transaction_stop_meter_map
+            .transaction_stop_meter_val_count
             .get_mut(&local_transaction_id)
         {
-            let len = data.len();
-            data.push(values.clone());
+            let len = *data;
+            *data += 1;
             len
         } else {
-            self.transaction_stop_meter_map
-                .insert(local_transaction_id, vec![values.clone()]);
+            self.transaction_stop_meter_val_count
+                .insert(local_transaction_id, 1);
             0
         };
-        self.db.db_add_meter_tx(local_transaction_id, index, values);
+        self.interface.db_add_stop_meter_val(local_transaction_id, index, values).await;
     }
-    pub(crate) fn on_transaction_online(&mut self) {
-        self.process_transaction();
+    pub(crate) async fn on_transaction_online(&mut self) {
+        self.process_transaction().await;
     }
-    pub(crate) fn start_transaction(
+    pub(crate) async fn start_transaction(
         &mut self,
         connector_id: usize,
         id_tag: String,
@@ -287,21 +292,21 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                 false,
                 SeccState::Plugged,
             ),
-        );
-        let meter_start = self.hw.get_start_stop_value(connector_id);
+        ).await;
+        let meter_start = self.interface.get_start_stop_meter_value(connector_id).await;
         let start_event = StartTransactionEvent {
             local_transaction_id,
             connector_id,
             id_tag,
             meter_start,
             reservation_id,
-            timestamp: self.get_transaction_time(),
+            timestamp: self.get_transaction_time().await,
         };
-        self.start_meter_data(connector_id);
-        self.add_transaction_event(TransactionEvent::Start(start_event));
+        self.start_meter_data(connector_id).await;
+        self.add_transaction_event(TransactionEvent::Start(start_event)).await;
     }
 
-    pub(crate) fn stop_transaction(
+    pub(crate) async fn stop_transaction(
         &mut self,
         connector_id: usize,
         id_tag: Option<String>,
@@ -325,12 +330,12 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                     }
                 };
                 self.active_local_transactions[connector_id] = None;
-                let meter_stop = self.hw.get_start_stop_value(connector_id);
+                let meter_stop = self.interface.get_start_stop_meter_value(connector_id).await;
                 let stop_event = StopTransactionEvent {
                     local_transaction_id: *local_transaction_id,
                     id_tag,
                     meter_stop,
-                    timestamp: self.get_transaction_time(),
+                    timestamp: self.get_transaction_time().await,
                     reason,
                     transaction_data: None,
                 };
@@ -340,17 +345,17 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                 unreachable!();
             }
         };
-        self.stop_meter_data(connector_id);
-        self.change_connector_state(connector_id, new_state);
-        self.add_transaction_event(stop_event);
+        self.stop_meter_data(connector_id).await;
+        self.change_connector_state(connector_id, new_state).await;
+        self.add_transaction_event(stop_event).await;
         if self.active_local_transactions.iter().all(|f| f.is_none()) {
-            if let FirmwareState::WaitingForTransactionToFinish(firmware_image) = &self.firmware_state {
-                self.try_firmware_install(firmware_image.clone());
+            if let FirmwareState::WaitingForTransactionToFinish = &self.firmware_state {
+                self.try_firmware_install().await;
             }
         }
     }
 
-    pub(crate) fn deauthorize_transaction(&mut self, local_transaction_id: u32) {
+    pub(crate) async fn deauthorize_transaction(&mut self, local_transaction_id: u32) {
         if let Some(connector_id) = self.transaction_connector_map.get(&local_transaction_id) {
             if let ConnectorState::Transaction {
                 local_transaction_id: local_transaction_id_tx,
@@ -359,41 +364,28 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                 } = &mut self.connector_state[*connector_id] {
                 if *local_transaction_id_tx == local_transaction_id {
                     if self.configs.stop_transaction_on_invalid_id.value {
-                        self.stop_transaction(*connector_id, None, Some(Reason::DeAuthorized));
+                        self.stop_transaction(*connector_id, None, Some(Reason::DeAuthorized)).await;
                     } else {
                         *is_evse_suspended = true;
-                        self.sync_connector_states(*connector_id, None, None);
+                        self.sync_connector_states(*connector_id, None, None).await;
                     }
                 }
             }
         }
     }
-    pub(crate) fn handle_unfinished_transactions(&mut self) {
-        let mut unfinished_txn = BTreeSet::new();
-        for local_transaction_id in self.transaction_connector_map.keys() {
-            unfinished_txn.insert(*local_transaction_id);
-        }
-        for event in self.transaction_queue.iter() {
-            if let Some(id) = event.get_local_transaction_id() {
-                if !event.is_stop() {
-                    unfinished_txn.insert(id);
-                } else {
-                    unfinished_txn.remove(&id);
-                }
-            }
-        }
-        for local_transaction_id in unfinished_txn {
+    pub(crate) async fn handle_unfinished_transactions(&mut self, unfinished_transactions: BTreeSet<u32>) {
+        for local_transaction_id in unfinished_transactions {
             if let Some(connector_id) = self.transaction_connector_map.get(&local_transaction_id) {
-                let meter_stop = self.hw.get_start_stop_value(*connector_id);
+                let meter_stop = self.interface.get_start_stop_meter_value(*connector_id).await;
                 let stop_event = TransactionEvent::Stop(StopTransactionEvent {
                     local_transaction_id,
                     id_tag: None,
                     meter_stop,
-                    timestamp: self.get_transaction_time(),
+                    timestamp: self.get_transaction_time().await,
                     reason: Some(Reason::PowerLoss),
                     transaction_data: None,
                 });
-                self.add_transaction_event(stop_event);
+                self.add_transaction_event(stop_event).await;
             }
         }
     }

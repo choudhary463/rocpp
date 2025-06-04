@@ -1,33 +1,30 @@
-use alloc::vec::Vec;
-use ocpp_core::v16::types::{FirmwareStatus, Reason, ResetType};
+use rocpp_core::v16::types::{FirmwareStatus, Reason, ResetType};
 
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}, state_machine::firmware::{FirmwareInstallStatus, FirmwareState}
-};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}, state_machine::firmware::{FirmwareInstallStatus, FirmwareState}};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn firmware_download_response_helper(&mut self, res: Option<Vec<u8>>) {
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn firmware_download_response(&mut self, res: bool) {
         match core::mem::replace(&mut self.firmware_state, FirmwareState::Idle) {
             FirmwareState::Downloading(mut t) => match res {
-                Some(firmware_image) => {
-                    self.send_firmware_status_notification(FirmwareStatus::Downloaded);
+                true => {
+                    self.send_firmware_status_notification(FirmwareStatus::Downloaded).await;
                     if self.active_local_transactions.iter().all(|f| f.is_none()) {
-                        self.try_firmware_install(firmware_image);
+                        self.try_firmware_install().await;
                     } else {
                         self.firmware_state =
-                            FirmwareState::WaitingForTransactionToFinish(firmware_image);
+                            FirmwareState::WaitingForTransactionToFinish;
                         for connector_id in 0..self.configs.number_of_connectors.value {
-                            self.sync_connector_states(connector_id, None, None);
+                            self.sync_connector_states(connector_id, None, None).await;
                         }
                     }
                 }
-                None => {
+                false => {
                     t.retry_left -= 1;
                     if t.retry_left > 0 && t.retry_interval > 0 {
-                        self.add_timeout(TimerId::Firmware, t.retry_interval);
+                        self.add_timeout(TimerId::Firmware, t.retry_interval).await;
                         self.firmware_state = FirmwareState::DownloadSleep(t);
                     } else {
-                        self.try_firmware_download(t);
+                        self.try_firmware_download(t).await;
                     }
                 }
             },
@@ -36,12 +33,13 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             }
         }
     }
-    pub fn firmware_install_response_helper(&mut self, res: bool) {
+    pub async fn firmware_install_response(&mut self, res: bool) {
         let state = match res {
             true => FirmwareInstallStatus::InstallationSuccess,
             false => FirmwareInstallStatus::InstallationFailed,
         };
-        self.db.db_change_firmware_state(state);
-        self.reset(ResetType::Soft, Some(Reason::Reboot));
+        self.firmware_state = FirmwareState::Idle;
+        self.interface.db_change_firmware_state(state).await;
+        self.reset(ResetType::Soft, Some(Reason::Reboot)).await;
     }
 }

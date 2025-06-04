@@ -2,12 +2,10 @@ use alloc::string::String;
 use rand::TryRngCore;
 use core::fmt::Write;
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    cp::core::ChargePointCore
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
+
+impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) fn get_uuid(&mut self) -> String {
         let mut bytes = [0u8; 16];
         self.rng.try_fill_bytes(&mut bytes).unwrap();

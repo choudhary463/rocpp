@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::cancel_reservation::{CancelReservationRequest, CancelReservationResponse},
@@ -7,11 +7,9 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface}, state_machine::connector::ConnectorState
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface, state_machine::connector::ConnectorState};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
+impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) fn get_connector_with_reservation(&self, reservation_id: i32) -> Option<usize> {
         for connector_id in 0..self.configs.number_of_connectors.value {
             if let ConnectorState::Reserved {
@@ -25,7 +23,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         }
         None
     }
-    pub(crate) fn cancel_reservation_ocpp(&mut self, unique_id: String, req: CancelReservationRequest) {
+    pub(crate) async fn cancel_reservation_ocpp(&mut self, unique_id: String, req: CancelReservationRequest) {
         let mut new_status = None;
         let status =
             if let Some(connector_id) = self.get_connector_with_reservation(req.reservation_id) {
@@ -41,16 +39,16 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                         unreachable!();
                     }
                 }
-                self.remove_reservation(connector_id, req.reservation_id);
+                self.remove_reservation(connector_id, req.reservation_id).await;
                 CancelReservationStatus::Accepted
             } else {
                 CancelReservationStatus::Rejected
             };
         let payload = CancelReservationResponse { status };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
         if let Some((connector_id, state)) = new_status {
-            self.change_connector_state(connector_id, state);
+            self.change_connector_state(connector_id, state).await;
         }
     }
 }

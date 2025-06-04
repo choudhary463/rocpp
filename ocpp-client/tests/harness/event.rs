@@ -7,7 +7,7 @@ use std::{
 };
 
 use futures::task::AtomicWaker;
-use ocpp_core::v16::protocol_error::ProtocolError;
+use rocpp_core::v16::protocol_error::ProtocolError;
 use serde_json::Value;
 use tokio::time;
 

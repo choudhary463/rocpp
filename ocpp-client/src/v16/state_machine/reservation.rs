@@ -1,10 +1,10 @@
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}
-};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn remove_reservation(&mut self, connector_id: usize, reservation_id: i32) {
-        self.db.db_remove_reservation(reservation_id);
-        self.remove_timeout(TimerId::Reservation(connector_id));
+
+
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn remove_reservation(&mut self, connector_id: usize, reservation_id: i32) {
+        self.interface.db_remove_reservation(reservation_id).await;
+        self.remove_timeout(TimerId::Reservation(connector_id)).await;
     }
 }

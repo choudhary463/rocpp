@@ -1,17 +1,15 @@
 use alloc::string::String;
-use ocpp_core::v16::types::{Reason, RegistrationStatus, ResetType};
+use rocpp_core::v16::types::{Reason, RegistrationStatus, ResetType};
 
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, timers::TimerId}
-};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, TimerId}};
 
 use super::{call::OutgoingCallState, connector::ConnectorState};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
+impl<I: ChargePointInterface> ChargePoint<I> {
     pub(crate) fn call_permission(&self) -> bool {
         self.ws_connected && self.registration_status == RegistrationStatus::Accepted
     }
-    pub(crate) fn handle_id_tag_authorized(
+    pub(crate) async fn handle_id_tag_authorized(
         &mut self,
         connector_id: usize,
         id_tag: String,
@@ -23,16 +21,16 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                     self.add_timeout(
                         TimerId::Authorize(connector_id),
                         self.configs.connection_time_out.value,
-                    );
+                    ).await;
                     self.change_connector_state(
                         connector_id,
                         ConnectorState::authorized(id_tag, parent_id_tag, None),
-                    );
+                    ).await;
                 }
             }
             ConnectorState::Plugged => {
                 if !self.firmware_state.ongoing_firmware_update() && self.pending_reset.is_none() {
-                    self.start_transaction(connector_id, id_tag, parent_id_tag, None);
+                    self.start_transaction(connector_id, id_tag, parent_id_tag, None).await;
                 }
             }
             ConnectorState::Authorized {
@@ -55,7 +53,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                     || (transaction_parent_id_tag.is_some()
                         && *transaction_parent_id_tag == parent_id_tag)
                 {
-                    self.stop_transaction(connector_id, Some(id_tag), Some(Reason::Local));
+                    self.stop_transaction(connector_id, Some(id_tag), Some(Reason::Local)).await;
                 }
             }
             ConnectorState::Finishing => {
@@ -74,21 +72,21 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                 {
                     let reservation_id = *reservation_id;
                     let is_plugged = *is_plugged;
-                    self.remove_reservation(connector_id, reservation_id);
+                    self.remove_reservation(connector_id, reservation_id).await;
                     if is_plugged {
                         self.start_transaction(
                             connector_id,
                             id_tag,
                             parent_id_tag,
                             Some(reservation_id),
-                        );
+                        ).await;
                     } else {
                         self.change_connector_state(
                             connector_id,
                             ConnectorState::authorized(id_tag, parent_id_tag, Some(reservation_id)),
-                        );
+                        ).await;
                     }
-                    self.remove_timeout(TimerId::Reservation(connector_id));
+                    self.remove_timeout(TimerId::Reservation(connector_id)).await;
                 }
             }
             ConnectorState::Unavailable(_) => {
@@ -99,7 +97,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             }
         };
     }
-    pub fn reset(&mut self, kind: ResetType, reason: Option<Reason>) {
+    pub async fn reset(&mut self, kind: ResetType, reason: Option<Reason>) {
         self.pending_reset = Some(kind.clone());
         let reason = reason.or(match kind {
             ResetType::Hard => Some(Reason::HardReset),
@@ -107,7 +105,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         });
         for connector_id in 0..self.configs.number_of_connectors.value {
             if self.connector_state[connector_id].in_transaction() {
-                self.stop_transaction(connector_id, None, reason.clone());
+                self.stop_transaction(connector_id, None, reason.clone()).await;
             }
         }
         match kind {
@@ -117,7 +115,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                 }
             }
             ResetType::Hard => {
-                self.hw.hard_reset();
+                self.interface.interface.hard_reset().await;
             }
         }
     }

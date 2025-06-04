@@ -5,3 +5,4 @@ pub mod firmware;
 pub mod harness;
 pub mod hardware;
 pub mod ws;
+pub mod timers;

@@ -1,57 +1,29 @@
 # ROCPP - Rust OCPP Implementation
 
-A Rust-based implementation of the Open Charge Point Protocol (OCPP) 1.6 for electric vehicle charging infrastructure. The project currently includes OCPP **client** implementation  with simulator, with plans to support **server-side** functionality, **no-std embedded environments** and **OCPP2.x** support in the future.
+ROCPP is a modular Rust-based implementation of the Open Charge Point Protocol (OCPP), built in Rust.
 
-## Project Structure
+## Currently Supports
 
-The project is organized into several crates:
+- OCPP 1.6 client-side implementation
+- `no_std` support embedded environments
+- Desktop charger simulator (Tauri)
+- In-house conformance test suite with 60+ test cases
 
-* `ocpp-core`: Core protocol definitions, message formats, and data types
-* `ocpp-client`: Client implementation with state machine and services
-* `ocpp-server`: Server-side implementation (WIP)
+## Planned Features
 
-## Getting Started (Client)
+- OCPP 2.0.x support
+- Server-side (Central System) implementation
+- Allow external OCPP clients or central systems to connect and run against the conformance test suite via WebSocket, enabling validation of third-party implementations
 
-### Build
-Clone the repo and build the project:
+## Crates
 
-```sh
-git clone https://github.com/choudhary463/rocpp.git
-cd rocpp
-cargo build --workspace
-```
+- [`rocpp-core`](./ocpp-core/README.md) — Core protocol types and data structures
+- [`rocpp-client`](./ocpp-client/README.md) — Client implementation with conformance tests
+- [`rocpp-server`](./ocpp-server/README.md) — Server implementation (WIP)
 
-### Run the Simulator
-To launch the desktop simulator:
-```sh
-cd ocpp-client/examples/v16/simulator
-cargo tauri dev
-```
+## Tools & Examples
 
-## Conformance Testing
-
-ROCPP includes an in-house conformance test suite located in [ocpp-client/tests/conformance](https://github.com/choudhary463/rocpp/blob/main/ocpp-client/tests/conformance).  
-Currently, **60+ test cases** have been implemented to verify behavior against the OCPP 1.6 specification, covering:
-
-- Boot and heartbeat
-- Authentication and authorization
-- Transaction lifecycle (start/stop)
-- Configuration key handling
-- Firmware update and diagnostics
-- Reservation management
-- Remote trigger and reset
-- Error handling and edge cases
-
-You can run all tests using:
-
-```sh
-cd ocpp-client
-cargo test --test conformance_runner
-```
-
-### External Compatibility (Planned)
-Future versions will allow external OCPP clients or central systems to connect and run against this test suite via WebSocket.
-This will enable developers to validate their own implementations against the ROCPP test harness.
+- [`charger-simulator`](./ocpp-client/examples/v16/simulator/README.md) — OCPP 1.6 charger simulator simulator for testing and debugging
 
 ## Contributing
 
@@ -61,4 +33,4 @@ If you find a bug, want to improve something, or add new test cases, feel free t
 Please keep changes focused and well-scoped. For larger features, open an issue first to discuss the approach.
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE](https://github.com/choudhary463/rocpp/blob/main/LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](./LICENSE) file for details.

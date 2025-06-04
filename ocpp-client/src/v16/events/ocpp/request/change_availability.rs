@@ -1,5 +1,5 @@
 use alloc::{string::String, vec::Vec};
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::change_availability::{ChangeAvailabilityRequest, ChangeAvailabilityResponse},
@@ -7,12 +7,11 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState, timers::TimerId}, state_machine::connector::ConnectorState
-};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState, TimerId}, state_machine::connector::ConnectorState};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn change_availability_ocpp(&mut self, unique_id: String, req: ChangeAvailabilityRequest) {
+
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn change_availability_ocpp(&mut self, unique_id: String, req: ChangeAvailabilityRequest) {
         let mut changes = Vec::new();
         let mut pending = false;
         if req.connector_id > self.configs.number_of_connectors.value {
@@ -20,7 +19,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                 status: AvailabilityStatus::Rejected,
             };
             let res = CallResult::new(unique_id, payload);
-            self.send_ws_msg(res.encode());
+            self.send_ws_msg(res.encode()).await;
             return;
         }
         for connector_id in if req.connector_id == 0 {
@@ -58,7 +57,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                             .push((connector_id, ConnectorState::unavailabe(SeccState::Plugged)));
                     }
                     ConnectorState::Authorized { .. } => {
-                        self.remove_timeout(TimerId::Authorize(connector_id));
+                        self.remove_timeout(TimerId::Authorize(connector_id)).await;
                         changes.push((
                             connector_id,
                             ConnectorState::unavailabe(SeccState::Unplugged),
@@ -82,7 +81,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                         } else {
                             SeccState::Unplugged
                         };
-                        self.remove_reservation(connector_id, *reservation_id);
+                        self.remove_reservation(connector_id, *reservation_id).await;
                         changes.push((connector_id, ConnectorState::unavailabe(secc_state)));
                     }
                     ConnectorState::Faulty => {
@@ -91,8 +90,8 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                     _ => {}
                 },
             }
-            self.db
-                .db_change_operative_state(connector_id, req.kind.clone());
+            self.interface
+                .db_change_operative_state(connector_id, req.kind.clone()).await;
         }
         let status = if pending {
             AvailabilityStatus::Scheduled
@@ -101,10 +100,10 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         };
         let payload = ChangeAvailabilityResponse { status };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
 
         for (connector_id, state) in changes {
-            self.change_connector_state(connector_id, state);
+            self.change_connector_state(connector_id, state).await;
         }
     }
 }

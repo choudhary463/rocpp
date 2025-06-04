@@ -1,7 +1,7 @@
-use crate::v16::{cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface}};
+use crate::v16::{interfaces::ChargePointInterface, ChargePoint};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn init_helper(&mut self) {
-        self.handle_unfinished_transactions();
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn init(&mut self) {
+        self.connect(self.cms_url.clone()).await;
     }
 }

@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::reserve_now::{ReserveNowRequest, ReserveNowResponse},
@@ -7,17 +7,16 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface, peripheral_input::SeccState, timers::TimerId}, state_machine::connector::ConnectorState
-};
+use crate::v16::{cp::ChargePoint, interfaces::{ChargePointInterface, SeccState, TimerId}, state_machine::connector::ConnectorState};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn reserve_now_ocpp(&mut self, unique_id: String, req: ReserveNowRequest) {
+
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn reserve_now_ocpp(&mut self, unique_id: String, req: ReserveNowRequest) {
         let mut send_status = None;
         let connector_id = req.connector_id;
         let already_reserved = self.get_connector_with_reservation(req.reservation_id);
         let mut status = ReservationStatus::Rejected;
-        let current = self.get_time().unwrap();
+        let current = self.get_time().await.unwrap();
         let diff = req.expiry_date - current;
         if connector_id >= 1
             && connector_id <= self.configs.number_of_connectors.value
@@ -29,11 +28,11 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             let connector_id = req.connector_id - 1;
             match &mut self.connector_state[connector_id] {
                 ConnectorState::Idle => {
-                    self.db.db_add_reservation(req.clone());
+                    self.interface.db_add_reservation(req.clone()).await;
                     self.add_timeout(
                         TimerId::Reservation(connector_id),
                         diff.num_seconds() as u64,
-                    );
+                    ).await;
                     send_status = Some((
                         connector_id,
                         ConnectorState::reserved(
@@ -64,14 +63,14 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                     ..
                 } => {
                     if req.reservation_id == *reservation_id {
-                        self.db.db_add_reservation(req.clone());
+                        self.interface.db_add_reservation(req.clone()).await;
                         *reservation_id_tag = req.id_tag;
                         *reservation_parent_id_tag = req.parent_id_tag;
                         status = ReservationStatus::Accepted;
                         self.add_timeout(
                             TimerId::Reservation(connector_id),
                             diff.num_seconds() as u64,
-                        );
+                        ).await;
                     } else {
                         status = ReservationStatus::Occupied;
                     }
@@ -87,9 +86,9 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         }
         let payload = ReserveNowResponse { status };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
         if let Some((connector_id, state)) = send_status {
-            self.change_connector_state(connector_id, state);
+            self.change_connector_state(connector_id, state).await;
         }
     }
 }

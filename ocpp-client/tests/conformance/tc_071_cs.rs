@@ -2,8 +2,8 @@ use std::sync::{Arc, Mutex};
 
 use anyhow::anyhow;
 use chrono::{DateTime, Utc};
-use ocpp_client::v16::MeterDataType;
-use ocpp_core::v16::{
+use rocpp_client::v16::MeterDataType;
+use rocpp_core::v16::{
     messages::{
         get_configuration::{GetConfigurationRequest, GetConfigurationResponse},
         meter_values::{MeterValuesRequest, MeterValuesResponse},

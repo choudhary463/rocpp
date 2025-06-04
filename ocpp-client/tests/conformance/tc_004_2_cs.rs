@@ -1,4 +1,4 @@
-use ocpp_core::v16::{
+use rocpp_core::v16::{
     messages::status_notification::{StatusNotificationRequest, StatusNotificationResponse},
     types::ChargePointStatus,
 };

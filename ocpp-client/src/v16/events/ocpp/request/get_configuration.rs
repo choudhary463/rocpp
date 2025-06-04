@@ -1,5 +1,5 @@
 use alloc::{string::{String, ToString}, vec::Vec};
-use ocpp_core::{
+use rocpp_core::{
     format::{
         frame::{CallError, CallResult},
         message::EncodeDecode,
@@ -11,11 +11,8 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    state_machine::{config::OcppConfig},
-    cp::core::ChargePointCore
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface, state_machine::config::OcppConfig};
+
 
 macro_rules! gen_get_ocpp_match {
     ($this:ident, $key:expr, { $($key_str:literal => $field:ident),+ }) => {
@@ -28,22 +25,23 @@ macro_rules! gen_get_ocpp_match {
     };
 }
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn get_configuration_ocpp(&mut self, unique_id: String, req: GetConfigurationRequest) {
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn get_configuration_ocpp(&mut self, unique_id: String, req: GetConfigurationRequest) {
         if req.key.as_ref().map(|t| t.len()).unwrap_or(0)
             > self.configs.get_configuration_max_keys.value
         {
             let res = CallError::new(unique_id, ProtocolError::OccurrenceConstraintViolation);
-            self.send_ws_msg(res.encode());
+            self.send_ws_msg(res.encode()).await;
             return;
         }
         let mut configuration_key = Vec::new();
         let mut unknown_key = Vec::new();
         let keys = if req.key.as_ref().map(|t| t.is_empty()).unwrap_or(true) {
-            self.db
-                .get_all_config()
+            self.interface
+                .db_get_all_configs()
+                .await
                 .into_iter()
-                .map(|t| t.0)
+                .map(|t| t.0.to_string())
                 .collect::<Vec<_>>()
         } else {
             req.key.unwrap()
@@ -73,7 +71,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         };
         let res = CallResult::new(unique_id, payload);
 
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
     }
     fn config_get_helper<T>(&self, accessor: fn(&Self) -> &OcppConfig<T>) -> KeyValue {
         let cfg_ref = accessor(self);

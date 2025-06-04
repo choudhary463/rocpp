@@ -1,19 +1,12 @@
-use alloc::{string::{String, ToString}, vec};
-use chrono::{DateTime, Utc};
-use ocpp_core::v16::{
+use alloc::string::String;
+use rocpp_core::v16::{
     messages::authorize::AuthorizeRequest,
-    types::{AuthorizationStatus, IdTagInfo},
+    types::IdTagInfo,
 };
 
-use crate::v16::{drivers::{database::Database, hardware_interface::HardwareInterface}, cp::core::ChargePointCore};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
 use super::{call::CallAction, connector::ConnectorState};
-
-#[derive(Clone, serde::Serialize, serde::Deserialize)]
-pub(crate) struct CachedEntry {
-    pub info: IdTagInfo,
-    pub updated_at: DateTime<Utc>,
-}
 
 #[derive(Clone)]
 pub(crate) enum LocalListChange {
@@ -43,55 +36,27 @@ pub(crate) enum AuthorizeStatus {
     },
 }
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn send_authorize_request(&mut self, connector_id: usize, id_tag: String) {
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn send_authorize_request(&mut self, connector_id: usize, id_tag: String) {
         self.pending_auth_requests
             .push_back((connector_id, id_tag.clone()));
         let payload = AuthorizeRequest { id_tag };
-        self.enqueue_call(CallAction::Authorize, payload);
+        self.enqueue_call(CallAction::Authorize, payload).await;
     }
 
-    pub(crate) fn remove_from_cache(&mut self, id_tag: &str) {
-        self.db.db_delete_cache(vec![id_tag.into()]);
-        if self.authorization_cache.remove(id_tag).is_some() {
-            if let Some(pos) = self.cache_usage_order.iter().position(|t| t == id_tag) {
-                self.cache_usage_order.remove(pos);
-            }
-        }
-    }
-
-    pub(crate) fn update_cache(&mut self, id_tag: String, info: IdTagInfo) {
+    pub(crate) async fn update_cache(&mut self, id_tag: String, info: IdTagInfo) {
         if !self.configs.authorization_cache_enabled.value {
             return;
         }
-        let now = self.get_time().unwrap_or(self.default_time());
-
-        if let Some(entry) = self.authorization_cache.get_mut(&id_tag) {
-            entry.info = info.clone();
-            entry.updated_at = now;
-            self.mark_recently_used(&id_tag);
-        } else if self.local_list_entries.contains_key(&id_tag) {
+        if self.interface.db_get_from_local_list(&id_tag).await.is_some() {
             // skip
         } else {
-            while self.authorization_cache.len() >= self.max_cache_len {
-                self.evict_one();
-            }
-
-            let entry = CachedEntry {
-                info: info.clone(),
-                updated_at: now,
-            };
-
-            self.authorization_cache
-                .insert(id_tag.clone(), entry.clone());
-            self.cache_usage_order.push_front(id_tag.clone());
-
-            self.db.db_update_cache(id_tag, entry);
+            self.interface.db_update_cache(&id_tag, info).await;
             return;
         }
     }
 
-    pub(crate) fn evaluate_id_tag_auth(&mut self, id_tag: String, connector_id: usize) -> AuthorizeStatus {
+    pub(crate) async fn evaluate_id_tag_auth(&mut self, id_tag: String, connector_id: usize) -> AuthorizeStatus {
         let is_auth_req_in_queue = self
             .pending_auth_requests
             .iter()
@@ -119,18 +84,18 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             ConnectorState::Faulty => return AuthorizeStatus::NotAuthorized,
             _ => false,
         };
-        let info = self
-            .local_list_entries
-            .get(&id_tag)
-            .filter(|_| self.configs.local_auth_list_enabled.value)
-            .or_else(|| {
-                self.authorization_cache
-                    .get(&id_tag)
-                    .map(|e| &e.info)
-                    .filter(|_| self.configs.authorization_cache_enabled.value)
-            });
+        let mut info = self
+            .interface
+            .db_get_from_local_list(&id_tag).await
+            .filter(|_| self.configs.local_auth_list_enabled.value);
+        if info.is_none() {
+            info = self.interface
+            .db_get_from_cache(&id_tag).await
+            .filter(|_| self.configs.authorization_cache_enabled.value)
+        }
+        let now = self.get_time().await;
         let mut parent_id_tag =
-            info.and_then(|t| t.is_valid(self.get_time()).then(|| t.parent_id_tag.clone()));
+            info.and_then(|t| t.is_valid(now).then(|| t.parent_id_tag.clone()));
 
         let is_online = self.call_permission();
 
@@ -161,30 +126,5 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             };
         }
         AuthorizeStatus::NotAuthorized
-    }
-
-    fn mark_recently_used(&mut self, id_tag: &str) {
-        if let Some(pos) = self.cache_usage_order.iter().position(|t| t == id_tag) {
-            self.cache_usage_order.remove(pos);
-            self.cache_usage_order.push_back(id_tag.to_string());
-        }
-    }
-
-    fn evict_one(&mut self) {
-        let evict_id_tag = self
-            .cache_usage_order
-            .iter()
-            .find(|id_tag| {
-                self.authorization_cache
-                    .get(*id_tag)
-                    .map(|entry| !matches!(entry.info.status, AuthorizationStatus::Accepted))
-                    .unwrap_or(false)
-            })
-            .cloned()
-            .or_else(|| self.cache_usage_order.pop_front());
-
-        if let Some(id_tag) = evict_id_tag {
-            self.remove_from_cache(&id_tag);
-        }
     }
 }

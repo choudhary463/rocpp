@@ -2,21 +2,21 @@ use std::{path::PathBuf, sync::Once};
 
 use flume::Sender;
 use log::LevelFilter;
-use ocpp_client::v16::{ChargePointAsync, ChargePointConfig, Database, FlumePeripheral, PeripheralActions, TokioShutdown, TokioTimerManager};
-use ocpp_core::v16::messages::boot_notification::BootNotificationRequest;
+use rocpp_client::v16::{ChargePoint, ChargePointConfig, ChargePointInterfaceFacade, HardwareEvent, KeyValueStore};
+use rocpp_core::v16::messages::boot_notification::BootNotificationRequest;
 use tokio_util::sync::CancellationToken;
 
 use crate::harness::event::{Event, SeccEvents};
 
 use super::{
-    database::{FileDatabase, MockDatabase}, diagnostics::MockDiagnostics, event::{event_bus, EventRx}, firmware::MockFirmware, hardware::MockHardware, ws::{MockWs, MockWsHandle}
+    database::{FileDatabase, MockDatabase}, diagnostics::MockDiagnostics, event::{event_bus, EventRx}, firmware::MockFirmware, hardware::MockHardware, timers::TokioTimerServie, ws::{MockWs, MockWsHandle}
 };
 
 #[derive(Debug)]
 pub struct CpHarness {
     pub ws_handle: MockWsHandle,
     pub bus_rx: EventRx,
-    pub peripheral_tx: Sender<PeripheralActions>,
+    pub hardware_tx: Sender<HardwareEvent>,
     pub stop_token: CancellationToken,
 }
 
@@ -67,10 +67,6 @@ fn get_call_timeout() -> u64 {
     5
 }
 
-fn get_max_cache_len() -> usize {
-    100
-}
-
 pub fn get_cms_url() -> String {
     String::from("temp")
 }
@@ -102,20 +98,19 @@ fn init_logger() {
 }
 
 impl CpHarness {
-    pub fn new_helper<D: Database>(
+    pub fn new_helper<D: KeyValueStore + 'static>(
         test_timeout: u64,
         override_defualt_configs: Vec<(&str, &str)>,
         db: D,
         clear_db: bool,
     ) -> Self {
+        let stop_token = CancellationToken::new();
         let (tx, rx) = event_bus(test_timeout);
         let (ws, ws_handle) = MockWs::new(tx.clone());
-        let diagnostics = MockDiagnostics {};
-        let firmware = MockFirmware {};
-        let shutdown = TokioShutdown::new();
-        let peripheral = FlumePeripheral::new();
-        let timer = TokioTimerManager::new();
-        let hw = MockHardware::new(shutdown.get_token());
+        let diagnostics = MockDiagnostics::new();
+        let firmware = MockFirmware::new();
+        let timer = TokioTimerServie::new();
+        let (hardware, hardware_tx) = MockHardware::new(stop_token.clone());
         let mut default_ocpp_configs = default_ocpp_configs();
         for (key, value) in override_defualt_configs {
             if let Some(config) = default_ocpp_configs.iter_mut().find(|x| x.0 == key) {
@@ -127,42 +122,21 @@ impl CpHarness {
         let configs = ChargePointConfig {
             cms_url: get_cms_url(),
             call_timeout: get_call_timeout(),
-            max_cache_len: get_max_cache_len(),
             boot_info: get_boot_info(),
             default_ocpp_configs,
             clear_db,
             seed: rand::random()
         };
-        let peripheral_tx = peripheral.get_sender();
-        let stop_token = shutdown.get_token();
-        let stop_token_clone = shutdown.get_token();
-        let cp = ChargePointAsync::new(
-            ws,
-            diagnostics,
-            firmware,
-            db,
-            hw,
-            timer,
-            peripheral,
-            shutdown,
-            configs
-        );
-        tokio::spawn(async move {
-            tokio::select! {
-                biased;
-                _ = stop_token_clone.cancelled() => {
-                    tx.push(Event::Secc(SeccEvents::HardReset));
-                    return;
-                }
-                _ = tokio::spawn(cp.run()) => {
-                    tx.push(Event::Secc(SeccEvents::Crashed));
-                }
-            }
+        let interface = ChargePointInterfaceFacade::new(db, diagnostics, firmware, timer, hardware, ws);
+        tokio::task::spawn_local(async move {
+            let res = tokio::task::spawn_local(ChargePoint::run(interface, configs)).await;
+            let event = res.is_ok().then(|| SeccEvents::HardReset).unwrap_or(SeccEvents::Crashed);
+            tx.push(Event::Secc(event));
         });
         Self {
             ws_handle,
             bus_rx: rx,
-            peripheral_tx,
+            hardware_tx,
             stop_token,
         }
     }

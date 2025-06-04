@@ -12,14 +12,17 @@ use interface::{
     ui::{run_ui, UiClient}
 };
 use log::LevelFilter;
-use ocpp_client::v16::{ChargePointAsync, ChargePointConfig, FlumePeripheral, FtpDiagnostics, FtpFirmwareDownload, PeripheralActions, TokioShutdown, TokioTimerManager, TokioWsClient};
+use rocpp_client::v16::{ChargePoint, ChargePointConfig, ChargePointInterfaceFacade, HardwareEvent};
 use tokio_util::sync::CancellationToken;
+
+use crate::interface::{diagnostics::DiagnosticsService, timers::TokioTimerServie, ws::WsClient};
 
 mod interface;
 
 #[tokio::main]
 async fn main() {
     let log_level = LevelFilter::Debug;
+    let db_path = std::env::temp_dir().join("config.json");
 
     let mut configs: ChargePointConfig = {
         let raw = std::fs::read_to_string("config.json").expect("missing config.json");
@@ -35,8 +38,8 @@ async fn main() {
         .parse()
         .unwrap();
     {
-        let mut db = DatabaseService::new("simulator.db");
-        configs.boot_info.firmware_version = Some(db.get_firmware_version());
+        let mut db = DatabaseService::new(db_path.clone());
+        configs.boot_info.firmware_version = Some(db.get_firmware_version().await);
     }
     let (ui_tx, ui_rx) = unbounded();
     let ui = UiClient::new(ui_tx);
@@ -44,49 +47,62 @@ async fn main() {
     init_log(ui.clone(), log_level);
 
     let ui_clone = ui.clone();
-    let (peripheral_tx, peripheral_rx) = unbounded::<PeripheralActions>();
-    let peripheral_tx_clone = peripheral_tx.clone();
-    tokio::spawn(async move {
-        tokio::time::sleep(Duration::from_secs(3)).await;
-        ui_clone.init(num_connectors);
-        loop {
-            let db = DatabaseService::new("simulator.db");
-            let diagnostics = FtpDiagnostics::new();
-            let fw_download = FtpFirmwareDownload::new();
-            let firmware = FirmwareService::new(db.clone(), fw_download);
-            let stop_token = CancellationToken::new();
-            let hw = HardwareService::new(ui.clone(), stop_token.clone());
-            let timer = TokioTimerManager::new();
-            let peripheral = FlumePeripheral::from_channel(peripheral_tx.clone(), peripheral_rx.clone());
-            let shutdown = TokioShutdown::from_token(stop_token.clone());
-            let ws = TokioWsClient::new();
-            let _ = peripheral_rx.drain();
-            log::info!("ChargePoint Started");
-            let cp = ChargePointAsync::new(
-                ws,
-                diagnostics,
-                firmware,
-                db,
-                hw,
-                timer,
-                peripheral,
-                shutdown,
-                configs.clone()
-            );
-            ui_clone.update_charger_state(true);
-            tokio::select! {
-                biased;
-                _ = stop_token.cancelled() => {
-                    log::debug!("ChargePoint stop_token cancelled")
-                }
-                _ = cp.run() => {
+    let (hardware_tx, hardware_rx) = unbounded::<HardwareEvent>();
+    let hardware_tx_clone = hardware_tx.clone();
+    let local_handle = std::thread::spawn({
+        move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("failed to build current_thread runtime");
 
-                }
-            }
-            ui_clone.update_charger_state(false);
-            log::info!("ChargePoint exited, restarting...");
-            tokio::time::sleep(Duration::from_secs(2)).await;
+            rt.block_on(async move {
+                let local_set = tokio::task::LocalSet::new();
+                local_set.spawn_local(async move {
+                    tokio::time::sleep(Duration::from_secs(3)).await;
+                    ui_clone.init(num_connectors);
+
+                    loop {
+                        let db = DatabaseService::new(db_path.clone());
+                        let diagnostics = DiagnosticsService::new();
+                        let firmware = FirmwareService::new(db.clone());
+                        let stop_token = CancellationToken::new();
+                        let hardware = HardwareService::new(
+                            ui.clone(),
+                            stop_token.clone(),
+                            hardware_rx.clone(),
+                        );
+                        let timer = TokioTimerServie::new();
+                        let ws = WsClient::new();
+                        let _ = hardware_rx.drain();
+
+                        let interface = ChargePointInterfaceFacade::new(
+                            db.clone(),
+                            diagnostics,
+                            firmware,
+                            timer,
+                            hardware,
+                            ws,
+                        );
+                        log::info!("ChargePoint Started");
+                        ui.update_charger_state(true);
+                        if let Err(e) = tokio::task::spawn_local(
+                            ChargePoint::run(interface, configs.clone()),
+                        )
+                        .await
+                        {
+                            log::error!("ChargePoint crashed: {}", e);
+                        }
+
+                        ui.update_charger_state(false);
+                        log::info!("ChargePoint exited, restarting...");
+                        tokio::time::sleep(Duration::from_secs(2)).await;
+                    }
+                });
+                local_set.await;
+            });
         }
     });
-    run_ui(peripheral_tx_clone, ui_rx).await;
+    run_ui(hardware_tx_clone, ui_rx).await;
+    let _ = local_handle.join();
 }

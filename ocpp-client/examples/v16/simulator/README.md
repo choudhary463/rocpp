@@ -1,7 +1,19 @@
-# Tauri + React
+# OCPP 1.6 Desktop Simulator
 
-This template should help get you started developing with Tauri and React in Vite.
+A Tauri-based desktop application to simulate an OCPP 1.6 EV charge point using the ROCPP client library.
 
-## Recommended IDE Setup
+Useful for testing backend systems, debugging protocol behavior, and visualizing state transitions in a GUI.
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+## Features
+
+- Connects to any OCPP 1.6 Central System via WebSocket
+- Simulates boot, heartbeats, transactions, and more
+- Interactive UI for sending remote commands and observing responses
+- Real-time log streaming and debug output
+
+## Run the Simulator
+
+```sh
+# From the root of the repo:
+cd ocpp-client/examples/v16/simulator
+npm run tauri dev

@@ -4,7 +4,6 @@ pub(crate) mod boot;
 pub(crate) mod call;
 pub(crate) mod clock;
 pub(crate) mod connector;
-// pub(crate) mod core;
 pub(crate) mod diagnostics;
 pub(crate) mod firmware;
 pub(crate) mod heartbeat;

@@ -1,0 +1,7 @@
+{
+    "rust-analyzer.linkedProjects": [
+      "ocpp-core/Cargo.toml",
+      "ocpp-client/Cargo.toml",
+      "ocpp-client/examples/v16/simulator/src-tauri/Cargo.toml"
+    ]
+  }

@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::clear_cache::{ClearCacheRequest, ClearCacheResponse},
@@ -7,24 +7,18 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    cp::core::ChargePointCore,
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub(crate) fn clear_cache_ocpp(&mut self, unique_id: String, _req: ClearCacheRequest) {
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub(crate) async fn clear_cache_ocpp(&mut self, unique_id: String, _req: ClearCacheRequest) {
         let status = if !self.configs.authorization_cache_enabled.value {
             ClearCacheStatus::Rejected
         } else {
-            let cached_id_tags = self.authorization_cache.clone().into_iter().map(|f| f.0).collect();
-            self.authorization_cache.clear();
-            self.cache_usage_order.clear();
-            self.db.db_delete_cache(cached_id_tags);
+            self.interface.db_clear_cache().await;
             ClearCacheStatus::Accepted
         };
         let payload = ClearCacheResponse { status };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
     }
 }

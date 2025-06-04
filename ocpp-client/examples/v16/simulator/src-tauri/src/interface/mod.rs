@@ -3,3 +3,7 @@ pub mod firmware;
 pub mod log;
 pub mod hardware;
 pub mod ui;
+pub mod diagnostics;
+pub mod ftp;
+pub mod timers;
+pub mod ws;

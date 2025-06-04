@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{frame::CallResult, message::EncodeDecode},
     v16::{
         messages::remote_start_transaction::{
@@ -9,13 +9,10 @@ use ocpp_core::{
     },
 };
 
-use crate::v16::{
-    drivers::{database::Database, hardware_interface::HardwareInterface},
-    state_machine::{auth::AuthorizeStatus, connector::ConnectorState},
-    cp::core::ChargePointCore
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface, state_machine::{auth::AuthorizeStatus, connector::ConnectorState}};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
+
+impl<I: ChargePointInterface> ChargePoint<I> {
     fn get_remote_start_info(
         &mut self,
         connector_id: Option<usize>,
@@ -52,7 +49,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         }
         None
     }
-    pub(crate) fn remote_start_transaction_ocpp(
+    pub(crate) async fn remote_start_transaction_ocpp(
         &mut self,
         unique_id: String,
         req: RemoteStartTransactionRequest,
@@ -60,7 +57,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         let mut auth_status = AuthorizeStatus::NotAuthorized;
         if let Some(connector_id) = self.get_remote_start_info(req.connector_id, &req.id_tag) {
             if self.configs.authorize_remote_transaction_requests.value {
-                auth_status = self.evaluate_id_tag_auth(req.id_tag, connector_id);
+                auth_status = self.evaluate_id_tag_auth(req.id_tag, connector_id).await;
             } else {
                 auth_status = AuthorizeStatus::Authorized {
                     connector_id,
@@ -75,7 +72,7 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
         };
         let payload = RemoteStartTransactionResponse { status };
         let res = CallResult::new(unique_id, payload);
-        self.send_ws_msg(res.encode());
+        self.send_ws_msg(res.encode()).await;
 
         match auth_status {
             AuthorizeStatus::NotAuthorized => {}
@@ -84,13 +81,13 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
                 id_tag,
                 parent_id_tag,
             } => {
-                self.handle_id_tag_authorized(connector_id, id_tag, parent_id_tag);
+                self.handle_id_tag_authorized(connector_id, id_tag, parent_id_tag).await;
             }
             AuthorizeStatus::SendAuthorize {
                 connector_id,
                 id_tag,
             } => {
-                self.send_authorize_request(connector_id, id_tag);
+                self.send_authorize_request(connector_id, id_tag).await;
             }
         };
     }

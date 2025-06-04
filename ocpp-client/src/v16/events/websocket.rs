@@ -1,5 +1,5 @@
 use alloc::string::String;
-use ocpp_core::{
+use rocpp_core::{
     format::{
         frame::{Call, CallError},
         message::{EncodeDecode, OcppMessage},
@@ -7,139 +7,137 @@ use ocpp_core::{
     v16::{protocol_error::ProtocolError, types::RegistrationStatus},
 };
 
-use crate::v16::{
-    cp::core::ChargePointCore, drivers::{database::Database, hardware_interface::HardwareInterface}
-};
+use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
-impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
-    pub fn ws_connected_helper(&mut self) {
+impl<I: ChargePointInterface> ChargePoint<I> {
+    pub async fn ws_connected(&mut self) {
         self.ws_connected = true;
-        self.on_boot_connected();
+        self.on_boot_connected().await;
     }
 
-    pub fn ws_disconnected_helper(&mut self) {
+    pub async fn ws_disconnected(&mut self) {
         self.ws_connected = false;
-        self.on_outgoing_offline();
-        self.on_boot_disconnected();
-        self.connect(self.cms_url.clone());
+        self.on_outgoing_offline().await;
+        self.on_boot_disconnected().await;
+        self.connect(self.cms_url.clone()).await;
     }
 
-    pub(crate) fn send_error(&mut self, uid: String, err: ProtocolError) {
+    pub(crate) async fn send_error(&mut self, uid: String, err: ProtocolError) {
         let err = CallError::new(uid, err);
-        self.send_ws_msg(err.encode());
+        self.send_ws_msg(err.encode()).await;
     }
 
-    pub fn got_ws_msg_helper(&mut self, msg: String) {
-        self.heartbeat_activity();
+    pub async fn got_ws_msg(&mut self, msg: String) {
+        self.heartbeat_activity().await;
 
         let res = OcppMessage::<ProtocolError>::decode(msg);
         match res {
             OcppMessage::Call(call) => match call.action.as_str() {
                 "CancelReservation" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.cancel_reservation_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.cancel_reservation_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "ChangeAvailability" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.change_availability_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.change_availability_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "ChangeConfiguration" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.change_configuration_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.change_configuration_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "ClearCache" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.clear_cache_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.clear_cache_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "ClearChargingProfile" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.clear_charging_profile_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.clear_charging_profile_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "DataTransfer" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.data_transfer_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.data_transfer_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "GetCompositeSchedule" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.get_composite_schedule_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.get_composite_schedule_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "GetConfiguration" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.get_configuration_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.get_configuration_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "GetDiagnostics" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.get_diagnostics_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.get_diagnostics_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "GetLocalListVersion" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.get_local_list_version_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.get_local_list_version_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "RemoteStartTransaction" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.remote_start_transaction_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.remote_start_transaction_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "RemoteStopTransaction" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.remote_stop_transaction_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.remote_stop_transaction_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "ReserveNow" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.reserve_now_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.reserve_now_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "Reset" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.reset_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.reset_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "SendLocalList" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.send_local_list_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.send_local_list_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "SetChargingProfile" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.set_charging_profile_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.set_charging_profile_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "TriggerMessage" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.trigger_message_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.trigger_message_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "UnlockConnector" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.unlock_connector_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.unlock_connector_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 "UpdateFirmware" => {
-                    self.handle_call(call, |srv, unique_id, req| {
-                        srv.update_firmware_ocpp(unique_id, req);
-                    });
+                    self.handle_call(call, |srv, unique_id, req| async {
+                        srv.update_firmware_ocpp(unique_id, req).await;
+                    }).await;
                 }
                 _ => {
-                    self.send_error(call.unique_id, ProtocolError::NotSupported);
+                    self.send_error(call.unique_id, ProtocolError::NotSupported).await;
                 }
             },
             OcppMessage::CallResponse(res) => {
-                self.handle_call_response(Ok(res), true);
+                self.handle_call_response(Ok(res), true).await;
             }
             OcppMessage::Invalid(invalid) => {
                 if let Some(uid) = invalid.unique_id {
-                    self.send_error(uid, ProtocolError::FormationViolation);
+                    self.send_error(uid, ProtocolError::FormationViolation).await;
                 }
             }
         }
@@ -153,23 +151,28 @@ impl<D: Database, H: HardwareInterface> ChargePointCore<D, H> {
             RegistrationStatus::Rejected => false,
         }
     }
-    fn handle_call<T: for<'de> serde::Deserialize<'de>>(
-        &mut self,
+    async fn handle_call<'a, T, H, Fut>(
+        &'a mut self,
         call: Call,
-        handler: impl FnOnce(&mut Self, String, T),
-    ) {
+        handler: H
+    )
+    where 
+    T: serde::de::DeserializeOwned,
+    H: FnOnce(&'a mut Self, String, T) -> Fut,
+    Fut: core::future::Future<Output = ()> + 'a,
+    {
         let uid = call.unique_id.clone();
 
         match serde_json::from_value::<T>(call.payload) {
             Ok(val) => {
                 if self.is_registered(&call.action) {
-                    handler(self, uid, val);
+                    handler(self, uid, val).await;
                 } else {
-                    self.send_error(uid, ProtocolError::SecurityError);
+                    self.send_error(uid, ProtocolError::SecurityError).await;
                 }
             }
             Err(_) => {
-                self.send_error(uid, ProtocolError::FormationViolation);
+                self.send_error(uid, ProtocolError::FormationViolation).await;
             }
         }
     }

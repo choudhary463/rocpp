@@ -1,6 +1,6 @@
 use flume::{unbounded, Receiver, Sender};
-use ocpp_client::v16::{PeripheralActions, SeccState};
-use ocpp_core::v16::types::ChargePointStatus;
+use rocpp_client::v16::{HardwareEvent, SeccState};
+use rocpp_core::v16::types::ChargePointStatus;
 use serde_json::{json, Value};
 use tauri::Manager;
 
@@ -49,14 +49,14 @@ impl UiClient {
 }
 
 pub struct TauriState {
-    pub secc_tx: Sender<PeripheralActions>,
+    pub secc_tx: Sender<HardwareEvent>,
 }
 
 #[tauri::command]
 pub fn send_id_tag(connector_id: usize, id_tag: String, state: tauri::State<'_, TauriState>) {
     let _ = state
         .secc_tx
-        .send(PeripheralActions::IdTag(connector_id - 1, id_tag));
+        .send(HardwareEvent::IdTag(connector_id - 1, id_tag));
 }
 
 #[tauri::command]
@@ -74,10 +74,10 @@ pub fn set_connector_state(
 
     let _ = state
         .secc_tx
-        .send(PeripheralActions::State(connector_id - 1, secc_state, None, None));
+        .send(HardwareEvent::State(connector_id - 1, secc_state, None, None));
 }
 
-pub async fn run_ui(secc_tx: Sender<PeripheralActions>, req_rx: Receiver<UiRequest>) {
+pub async fn run_ui(secc_tx: Sender<HardwareEvent>, req_rx: Receiver<UiRequest>) {
     let (ui_tx, ui_rx) = unbounded();
     tokio::spawn(async move { handle_ui_req(ui_tx, req_rx).await });
     tauri::Builder::default()
@@ -97,7 +97,7 @@ pub async fn run_ui(secc_tx: Sender<PeripheralActions>, req_rx: Receiver<UiReque
         .expect("error while running tauri application");
 }
 
-async fn handle_ui_req(ui_tx: Sender<(String, Value)>, req_rx: Receiver<UiRequest>) {
+pub async fn handle_ui_req(ui_tx: Sender<(String, Value)>, req_rx: Receiver<UiRequest>) {
     loop {
         let req = req_rx.recv_async().await.unwrap();
         match req {
