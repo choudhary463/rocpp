@@ -107,7 +107,7 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             }
         };
     }
-    pub async fn reset(&mut self, kind: ResetType, reason: Option<Reason>) {
+    pub(crate) async fn reset(&mut self, kind: ResetType, reason: Option<Reason>) {
         self.pending_reset = Some(kind.clone());
         let reason = reason.or(match kind {
             ResetType::Hard => Some(Reason::HardReset),

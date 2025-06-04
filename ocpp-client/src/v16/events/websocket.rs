@@ -10,12 +10,12 @@ use rocpp_core::{
 use crate::v16::{cp::ChargePoint, interfaces::ChargePointInterface};
 
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub async fn ws_connected(&mut self) {
+    pub(crate) async fn ws_connected(&mut self) {
         self.ws_connected = true;
         self.on_boot_connected().await;
     }
 
-    pub async fn ws_disconnected(&mut self) {
+    pub(crate) async fn ws_disconnected(&mut self) {
         self.ws_connected = false;
         self.on_outgoing_offline().await;
         self.on_boot_disconnected().await;
@@ -27,7 +27,7 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         self.send_ws_msg(err.encode()).await;
     }
 
-    pub async fn got_ws_msg(&mut self, msg: String) {
+    pub(crate) async fn got_ws_msg(&mut self, msg: String) {
         self.heartbeat_activity().await;
 
         let res = OcppMessage::<ProtocolError>::decode(msg);

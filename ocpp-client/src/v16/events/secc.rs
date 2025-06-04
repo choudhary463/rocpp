@@ -8,7 +8,7 @@ use crate::v16::{
 };
 
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub async fn secc_id_tag(&mut self, connector_id: usize, id_tag: String) {
+    pub(crate) async fn secc_id_tag(&mut self, connector_id: usize, id_tag: String) {
         match self.evaluate_id_tag_auth(id_tag, connector_id).await {
             AuthorizeStatus::NotAuthorized => {}
             AuthorizeStatus::Authorized {
@@ -28,7 +28,7 @@ impl<I: ChargePointInterface> ChargePoint<I> {
         };
     }
 
-    pub async fn secc_change_state(
+    pub(crate) async fn secc_change_state(
         &mut self,
         connector_id: usize,
         state: SeccState,

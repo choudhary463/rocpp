@@ -37,7 +37,7 @@ impl<I: ChargePointInterface> ChargePoint<I> {
             }
         }
     }
-    pub async fn firmware_install_response(&mut self, res: bool) {
+    pub(crate) async fn firmware_install_response(&mut self, res: bool) {
         let state = match res {
             true => FirmwareInstallStatus::InstallationSuccess,
             false => FirmwareInstallStatus::InstallationFailed,

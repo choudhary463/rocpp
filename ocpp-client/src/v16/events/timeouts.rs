@@ -18,7 +18,7 @@ use crate::v16::{
 };
 
 impl<I: ChargePointInterface> ChargePoint<I> {
-    pub async fn handle_timeout(&mut self, id: TimerId) {
+    pub(crate) async fn handle_timeout(&mut self, id: TimerId) {
         self.remove_timeout(id.clone()).await;
         match id {
             TimerId::Boot => {
